@@ -3,9 +3,9 @@ package qdao
 import (
 	"fmt"
 	"github.com/pkg/errors"
-	"qcom/global"
-	"qcom/util"
-	"qcom/util/qlog"
+	"github.com/camsiabor/qcom/global"
+	"github.com/camsiabor/qcom/util"
+	"github.com/camsiabor/qcom/util/qlog"
 	"strings"
 	"sync"
 	"time"

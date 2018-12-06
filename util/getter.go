@@ -3,7 +3,7 @@ package util
 import (
 	"fmt"
 	"github.com/pkg/errors"
-	"qcom/util/qtime"
+	"github.com/camsiabor/qcom/util/qtime"
 	"reflect"
 	"strconv"
 	"time"

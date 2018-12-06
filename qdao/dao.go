@@ -1,7 +1,7 @@
 package qdao
 
 import (
-	"qcom/util"
+	"github.com/camsiabor/qcom/util"
 	"sync"
 )
 

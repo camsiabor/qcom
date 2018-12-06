@@ -1,7 +1,7 @@
 package util
 
 import (
-	"qcom/util/qref"
+	"github.com/camsiabor/qcom/util/qref"
 	"reflect"
 	"strings"
 	"sync"
