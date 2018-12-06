@@ -1,0 +1,21 @@
+{
+  "tushare.khistory" : {
+    "ts_code" : {
+      "toname" : "code",
+      "acts" : [{
+        "act" : "Replace",
+        "args": [ [".SZ", ".SH" ], ""]
+      }]
+    },
+    "dete" : "",
+    "open" : "",
+    "high" : "",
+    "low" : "",
+    "close" : "",
+    "pre_close" : "",
+    "change" : "",
+    "pct_change" : "",
+    "vol" : "",
+    "amount" : ""
+  }
+}
