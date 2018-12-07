@@ -1,4 +1,4 @@
-package util
+package qencode
 
 import (
 	"bytes"

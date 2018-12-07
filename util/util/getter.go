@@ -643,3 +643,20 @@ func ColRowToMaps(cols []string, rows []interface{}, mapper * Mapper) ([]map[str
 	}
 	return maps, nil;
 }
+
+func SliceToString(seperator string, v ... interface{}) string {
+	if (v == nil) {
+		return "";
+	}
+	var n = len(v);
+	var format = "";
+	for i := 0; i < n; i++ {
+		var o = v[i];
+		var err, ok = o.(error);
+		if (ok) {
+			v[i] = err.Error();
+		}
+		format = format + "%v" + seperator;
+	}
+	return fmt.Sprintf(format, v...);
+}

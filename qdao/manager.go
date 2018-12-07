@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/camsiabor/qcom/global"
-	"github.com/camsiabor/qcom/util"
+	"github.com/camsiabor/qcom/util/util"
 	"github.com/camsiabor/qcom/util/qlog"
 	"strings"
 	"sync"

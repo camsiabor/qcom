@@ -1,6 +1,8 @@
 package qlog
 
 import (
+	"fmt"
+	"github.com/camsiabor/qcom/util/util"
 	"log"
 	"os"
 	"runtime"
@@ -53,7 +55,7 @@ func Log_destroy() {
 }
 
 
-func Log(level int, v ...interface{}) {
+func LogEx(level int, stackSkip int, v ... interface{}) {
 
 	var trace= level >= TRACE
 	if trace {
@@ -109,7 +111,7 @@ func Log(level int, v ...interface{}) {
 	var stackstr = "";
 	var pc uintptr;
 
-	pc, filename, linenum, _= runtime.Caller(1)
+	pc, filename, linenum, _= runtime.Caller(stackSkip)
 	var slashindex = strings.LastIndex(filename, "/");
 	filename = filename[slashindex+1:]
 	funcname = runtime.FuncForPC(pc).Name()
@@ -118,21 +120,30 @@ func Log(level int, v ...interface{}) {
 		// adjust buffer size to be larger than expected stack
 		var bytes = make([]byte, 8192)
 		var stack = runtime.Stack(bytes, false)
-		stackstr = string(bytes[:stack])
+		stackstr = string(bytes[:stack]);
 	}
+
+	var vs = util.SliceToString(" ", v...);
+	var line = fmt.Sprintf("%s %s %d %s   %s", levelstr, filename, linenum, funcname, vs);
+	_logger.Println(line);
 	if trace {
-		_logger.Println(levelstr, filename, linenum, funcname, v, stackstr)
-	} else {
-		_logger.Println(levelstr, filename, linenum, funcname, v)
+		_logger.Println(stackstr);
 	}
 
 	if _log2stdout {
+		_loggerstdout.Println(line);
 		if trace {
-			_loggerstdout.Println(levelstr, filename, linenum,funcname, v, stackstr)
-		} else {
-			_loggerstdout.Println(levelstr, filename, linenum,funcname, v)
+			_loggerstdout.Println(stackstr);
 		}
 	}
+}
 
+
+func Error(skipStack int, v ... interface {}) {
+	LogEx(ERROR, 2 + skipStack, v...);
+}
+
+func Log(level int, v ...interface{}) {
+	LogEx(level, 2, v...);
 }
 

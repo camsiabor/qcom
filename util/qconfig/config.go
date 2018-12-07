@@ -1,8 +1,9 @@
-package util
+package qconfig
 
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/camsiabor/qcom/util/util"
 	"io/ioutil"
 	"os"
 	"reflect"
@@ -25,7 +26,7 @@ func ConfigLoad(filepath string, includename string ) (config map[string]interfa
 	}
 
 	if (len(includename) > 0) {
-		var includes= GetMap(config, false, includename);
+		var includes= util.GetMap(config, false, includename);
 		if (includes != nil) {
 			for key, val := range includes {
 				if (val == nil) {

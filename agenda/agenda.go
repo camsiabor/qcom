@@ -1,7 +1,7 @@
 package agenda
 
 import (
-	"github.com/camsiabor/qcom/util"
+	"github.com/camsiabor/qcom/util/util"
 	"sync"
 	"time"
 )

@@ -1,7 +1,9 @@
-package util
+package qerr
 
 import (
 	"fmt"
+	"github.com/camsiabor/qcom/util/qlog"
+	"github.com/camsiabor/qcom/util/util"
 	"time"
 )
 
@@ -23,4 +25,13 @@ func NewCError(code int, t string, msg string) *CError {
 		Type : t,
 		Time : time.Now(),
 	};
+}
+
+func SimpleRecover(skipStack int) error {
+	var pan = recover();
+	var err =  util.AsError(pan);
+	if (err != nil) {
+		qlog.Error(4 + skipStack, err);
+	}
+	return err;
 }
