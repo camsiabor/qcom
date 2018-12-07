@@ -1,6 +1,7 @@
 package scache
 
 import (
+	"fmt"
 	"github.com/patrickmn/go-cache"
 	"sync"
 )
@@ -39,15 +40,18 @@ func NewSCache() (* SCache) {
 }
 
 func (o * SCacheManager) Get(name string) (*SCache) {
+	if (len(name) == 0) {
+		return nil;
+	}
 	var c = o.caches[name];
 	if (c == nil) {
 		o.mutex.Lock();
+		defer o.mutex.Unlock();
 		c = o.caches[name];
 		if (c == nil) {
 			c = NewSCache();
 			o.caches[name] = c;
 		}
-		o.mutex.Unlock();
 	}
 	return c;
 }
@@ -87,8 +91,24 @@ func (o * SCache) List(load bool, keys ... string) (vals []interface{}, err erro
 
 func (o * SCache) Set(val interface{}, key string ) (* SCache) {
 	o.mutex.Lock();
+	defer o.mutex.Unlock();
 	o.data[key] = val;
-	o.mutex.Unlock();
+	return o;
+}
+
+func (o * SCache) Sets(vals []interface{}, keys []string) (* SCache) {
+	var vallen = len(vals);
+	var keylen = len(keys);
+	if (vallen != keylen) {
+		panic(fmt.Sprintf("vals len != keys len %d / %d", vallen, keylen));
+	}
+	o.mutex.Lock();
+	defer o.mutex.Unlock();
+	for i := 0; i < vallen; i++ {
+		var key = keys[i];
+		var val = vals[i];
+		o.data[key] = val;
+	}
 	return o;
 }
 
@@ -151,6 +171,11 @@ func (o * SCache) SetSubVal(val interface{}, keys ... string) {
 	var sub = o.GetSubEx(1, keys...);
 	var key = keys[keyslen - 1];
 	sub.Set(val, key);
+}
+
+func (o * SCache) SetSubVals(vals []interface{}, keys []string, pathes ... string) {
+	var sub = o.GetSubEx(1, pathes...);
+	sub.Sets(vals, keys);
 }
 
 func (o * SCache) GetAll() (retm map[string]interface{}, err error) {
