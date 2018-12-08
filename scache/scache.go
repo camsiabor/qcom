@@ -210,6 +210,7 @@ func (o * SCache) SetSubVals(vals []interface{}, keys []string, pathes ... strin
 func (o * SCache) GetAll() (retm map[string]interface{}, err error) {
 	retm = make(map[string]interface{})
 	o.mutex.RLock();
+	defer o.mutex.Unlock();
 	for key, item := range o.data {
 		if (item == nil) {
 			continue;
@@ -222,6 +223,5 @@ func (o * SCache) GetAll() (retm map[string]interface{}, err error) {
 			retm[key] = item;
 		}
 	}
-	o.mutex.RUnlock();
 	return retm, err;
 }
