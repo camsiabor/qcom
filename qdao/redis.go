@@ -22,9 +22,6 @@ type DaoRedis struct {
 
 
 func (o * DaoRedis) Conn() (interface{}, error) {
-
-
-
 	var redisdb, perr = strconv.Atoi(o.Database);
 	if (perr != nil) {
 		redisdb = 0;

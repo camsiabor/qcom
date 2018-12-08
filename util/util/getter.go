@@ -654,3 +654,22 @@ func SliceToString(seperator string, v ... interface{}) string {
 	}
 	return fmt.Sprintf(format, v...);
 }
+
+func MapMerge(des interface{}, src interface{}, override bool) interface{} {
+	var desm = AsMap(des, false);
+	var srcm = AsMap(src, false);
+	if (desm == nil || srcm == nil) {
+		return nil;
+	}
+	for k, v := range srcm {
+		if (override) {
+			desm[k] = v;
+		} else {
+			var vdesc, ok = desm[k];
+			if (vdesc == nil || !ok) {
+				desm[k] = v;
+			}
+		}
+	}
+	return des;
+}
