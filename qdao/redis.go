@@ -3,10 +3,9 @@ package qdao
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/camsiabor/qcom/util/qref"
 	"github.com/gomodule/redigo/redis"
 	"github.com/pkg/errors"
-	"github.com/camsiabor/qcom/util/qref"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -206,9 +205,10 @@ func (o *DaoRedis) Query(db string, query string, args []interface{}) (interface
 	panic("implement me")
 }
 
-func (o *DaoRedis) Update(db string, group string, id string, val interface{}, override bool, marshal bool) (interface{}, error) {
+
+func (o *DaoRedis) Update(db string, group string, id string, val interface{}, override bool, marshal int) (interface{}, error) {
 	var conn = o.getConn(db);
-	if (marshal) {
+	if (marshal > 0) {
 		bytes, err := json.Marshal(val);
 		if (err != nil) {
 			return nil, err;
@@ -216,11 +216,17 @@ func (o *DaoRedis) Update(db string, group string, id string, val interface{}, o
 		val = string(bytes[:]);
 	}
 	if (len(group) == 0) {
-		var vval = reflect.ValueOf(val);
-		if (vval.Kind() == reflect.Map) {
+		if (qref.IsMapOrStruct(val)) {
 			var args = redis.Args{}.Add(id).AddFlat(val);
 			return redis.String(conn.Do("HMSET", args...));
 		} else {
+			if (marshal < 0) {
+				sval, err := qref.MarshalLazy(val);
+				if (err != nil) {
+					return nil, err;
+				}
+				val = sval;
+			}
 			if (override) {
 				return redis.String(conn.Do("SET", id, val));
 			} else {
@@ -228,6 +234,13 @@ func (o *DaoRedis) Update(db string, group string, id string, val interface{}, o
 			}
 		}
 	} else {
+		if (marshal < 0) {
+			sval, err := qref.MarshalLazy(val);
+			if (err != nil) {
+				return nil, err;
+			}
+			val = sval;
+		}
 		if (override) {
 			return redis.Int(conn.Do("HSET", group, id, val));
 		} else {
@@ -237,7 +250,7 @@ func (o *DaoRedis) Update(db string, group string, id string, val interface{}, o
 	return nil, nil;
 }
 
-func (o *DaoRedis) Updates(db string, group string, ids []interface{}, vals [] interface{}, override bool, marshal bool) (interface{}, error) {
+func (o *DaoRedis) Updates(db string, group string, ids []interface{}, vals [] interface{}, override bool, marshal int) (interface{}, error) {
 	var conn = o.getConn(db);
 	var idslen = len(ids);
 	var valslen = len(vals);
@@ -248,7 +261,7 @@ func (o *DaoRedis) Updates(db string, group string, ids []interface{}, vals [] i
 	for i := 0; i < idslen; i++ {
 		var id = ids[i];
 		var val = vals[i];
-		if (marshal) {
+		if (marshal > 0) {
 			bytes, err := json.Marshal(val);
 			if (err != nil) {
 				return nil, err;
@@ -256,11 +269,17 @@ func (o *DaoRedis) Updates(db string, group string, ids []interface{}, vals [] i
 			val = string(bytes[:]);
 		}
 		if (useset) {
-			var vval = reflect.ValueOf(val);
-			if (vval.Kind() == reflect.Map) {
+			if (qref.IsMapOrStruct(val)) {
 				var args = redis.Args{}.Add(id).AddFlat(val);
 				conn.Send("HMSET", args...);
 			} else {
+				if (marshal < 0) {
+					sval, err := qref.MarshalLazy(val);
+					if (err != nil) {
+						return nil, err;
+					}
+					val = sval;
+				}
 				if (override) {
 					conn.Send("SET", id, val);
 				} else {
@@ -268,6 +287,13 @@ func (o *DaoRedis) Updates(db string, group string, ids []interface{}, vals [] i
 				}
 			}
 		} else {
+			if (marshal < 0) {
+				sval, err := qref.MarshalLazy(val);
+				if (err != nil) {
+					return nil, err;
+				}
+				val = sval;
+			}
 			if (override) {
 				conn.Send("HSET", group, id, val);
 			} else {

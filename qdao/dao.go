@@ -27,8 +27,8 @@ type D interface {
 	Gets(db string, group string, ids[] interface{}, unmarshal bool) (rets []interface{}, err error);
 	Query(db string, query string, args []interface{}) (interface{}, error);
 
-	Update(db string, group string, id string, val interface{}, override bool, marshal bool) (interface{}, error);
-	Updates(db string, group string, ids []interface{}, vals[] interface{}, override bool, marshal bool) (interface{}, error);
+	Update(db string, group string, id string, val interface{}, override bool, marshal int) (interface{}, error);
+	Updates(db string, group string, ids []interface{}, vals[] interface{}, override bool, marshal int) (interface{}, error);
 
 	Delete(db string, group string, id string) (interface{}, error);
 	Deletes(db string, group string, ids []interface{}) (interface{}, error);

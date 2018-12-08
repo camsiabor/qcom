@@ -1,10 +1,13 @@
 package util
 
 import (
+	"fmt"
 	"github.com/camsiabor/qcom/util/qref"
+	"github.com/pkg/errors"
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 )
 
 type MapiAct struct {
@@ -17,6 +20,7 @@ type Mapi struct {
 	NameTo string;
 	Acts []MapiAct;
 	Convert string;
+	Create bool;
 }
 
 type Mapper struct {
@@ -39,11 +43,20 @@ func (o * MapperManager) Init(options map[string]interface{}) {
 	if (o.mappers == nil) {
 		o.mappers = make(map[string] * Mapper);
 	}
+
+	var common * Mapper;
+	var allname = "all";
+	var all = GetMap(options, false, allname);
+	if (all != nil) {
+		common = &Mapper{};
+		common.Init(allname, all, nil);
+		o.Register(allname, common)
+	}
 	for name, opt := range options {
 		var mapper = &Mapper{};
 		var optm = AsMap(opt, false);
 		if (optm != nil) {
-			mapper.Init(name, optm);
+			mapper.Init(name, optm, common);
 			o.Register(name, mapper);
 		}
 	}
@@ -77,11 +90,18 @@ func (o * MapperManager) UnRegister(name string) {
 	delete(o.mappers, name);
 }
 
-func (o * Mapper) Init(name string, options map[string]interface{}) {
+func (o * Mapper) Init(name string, options map[string]interface{}, inherit * Mapper) {
 	o.Name = name;
 	if (o.mapis == nil) {
 		o.mapis = make(map[string] * Mapi)
 	}
+
+	if (inherit != nil){
+		for mapiname, mapic := range inherit.mapis {
+			o.mapis[mapiname] = mapic;
+		}
+	}
+
 	for mapiname, mapic := range options {
 		if (mapic == nil) {
 			continue;
@@ -90,10 +110,12 @@ func (o * Mapper) Init(name string, options map[string]interface{}) {
 		var nameto string;
 		var acts []MapiAct;
 		var convert string;
+		var create bool = false;
 		var kind = reflect.ValueOf(mapic).Kind();
 		if (kind == reflect.Map) {
 			nameto = GetStr(mapic, "", "nameto");
 			convert = GetStr(mapic, "", "convert")
+			create = GetBool(mapic, false, "create");
 			actslice := GetSlice(mapic, "acts");
 			if (actslice != nil && len(actslice) > 0) {
 				acts = make([]MapiAct, len(actslice));
@@ -111,12 +133,39 @@ func (o * Mapper) Init(name string, options map[string]interface{}) {
 			NameTo : nameto,
 			Acts: acts,
 			Convert: convert,
+			Create: create,
 		}
 		o.mapis[mapiname] = mapi;
 	}
 }
 
-func (o * Mapper) Map(m map[string]interface{}, clone bool) (rm map[string]interface{}, err error) {
+func (o * Mapper) Maps(m []interface{}, clone bool) (rms []interface{}, err error) {
+	if (m == nil) {
+		return nil, errors.New("data is null");
+	}
+	if (clone) {
+		rms = make([]interface{}, len(m));
+	} else {
+		rms = m;
+	}
+	for i, one := range m {
+		var cm, err = o.Map(one, clone);
+		if (err != nil) {
+			return nil, err;
+		}
+		if (clone) {
+			rms[i] = cm;
+		}
+	}
+	return rms, nil;
+}
+
+func (o * Mapper) Map(mo interface{}, clone bool) (rm map[string]interface{}, err error) {
+
+	var m = AsMap(mo, false);
+	if (m == nil) {
+		return nil, fmt.Errorf("not map %v", mo);
+	}
 
 	if (clone) {
 		rm = make(map[string]interface{});
@@ -128,8 +177,11 @@ func (o * Mapper) Map(m map[string]interface{}, clone bool) (rm map[string]inter
 	}
 
 	for name, mapi := range o.mapis {
+		if (len(name) == 0) {
+			continue;
+		}
 		var v, has = rm[name];
-		if (has) {
+		if (has || mapi.Create) {
 			if (mapi.Acts != nil) {
 				for a := 0; a < len(mapi.Acts); a++ {
 
@@ -183,6 +235,40 @@ func (o * Mapper) Replace(args []interface{}) interface{} {
 		v = strings.Replace(v, oldstr, newstr, -1);
 	}
 	return v;
+}
+
+func (o * Mapper) TimeFormat(args []interface{}) interface{} {
+	var arg0 = args[0];
+	var format = AsStr(args[1], "2006-01-02 15:04:15");
+	if (arg0 == nil) {
+		return time.Now().Format(format);
+	}
+	var v = AsTime(arg0, nil);
+	if (v == nil) {
+		return time.Now().Format(format);
+	}
+	return v.Format(format);
+
+}
+
+func (o * Mapper) TimeUnix(args []interface{}) interface{} {
+	var arg0 = args[0];
+	var multiple = GetInt64(args, 1, 2);
+	if (arg0 == nil) {
+		return time.Now().Unix() * multiple;
+	}
+	var format = GetStr(args, "", 1);
+	if (len(format) > 0) {
+		var t, err = time.Parse(format, AsStr(arg0, ""));
+		if (err == nil) {
+			return t.Unix() * multiple;
+		}
+	}
+	var t = AsTime(arg0, nil);
+	if (t == nil) {
+		return time.Now().Unix() * multiple;
+	}
+	return t.Unix() * multiple;
 }
 
 

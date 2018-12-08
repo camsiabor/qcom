@@ -1,7 +1,9 @@
 package qref
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/camsiabor/qcom/util/util"
 	"reflect"
 	"runtime"
 	"strings"
@@ -65,5 +67,67 @@ func StackInfo(skip int) map[string]interface{} {
 	r["file"] = filename;
 	r["stack"] = stackstr;
 	return r;
+
+}
+
+func IsMapOrStruct(v interface{}) bool {
+	var vval = reflect.ValueOf(v);
+	var kind = vval.Kind();
+	switch kind {
+	case reflect.Map, reflect.Struct:
+		return true;
+	case reflect.Ptr:
+		if (vval.Type().Elem().Kind() == reflect.Struct) {
+			if (!vval.IsNil()) {
+				return true;
+			}
+		}
+	}
+	return true;
+}
+
+func IsPointable(v interface {}) bool {
+	var vval = reflect.ValueOf(v);
+	var kind = vval.Kind();
+	switch kind {
+	case reflect.Map, reflect.Slice, reflect.Struct:
+		return true;
+	case reflect.Ptr:
+		if (vval.Type().Elem().Kind() == reflect.Struct) {
+			if (!vval.IsNil()) {
+				return true;
+			}
+		}
+	}
+	return true;
+}
+
+func MarshalLazy(v interface{}) (string, error) {
+	if (v == nil) {
+		return "", nil;
+	}
+	var vval = reflect.ValueOf(v);
+	var kind = vval.Kind();
+
+	var domarshal bool = false;
+	switch kind {
+	case reflect.Map, reflect.Slice, reflect.Struct:
+		domarshal = true;
+	case reflect.Ptr:
+		if (vval.Type().Elem().Kind() == reflect.Struct) {
+			if (vval.IsNil()) {
+				return "", nil;
+			}
+			domarshal = true;
+		}
+	}
+	if (domarshal) {
+		bytes, err := json.Marshal(v);
+		if (err != nil) {
+			return "", err;
+		}
+		return string(bytes[:]), nil;
+	}
+	return util.AsStr(v, ""), nil;
 
 }

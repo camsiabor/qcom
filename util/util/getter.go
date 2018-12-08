@@ -606,7 +606,7 @@ func GetSlice(o interface{}, keys ... interface{}) (val []interface{}) {
 }
 
 func GetStringSlice(o interface{}, keys ... interface{}) (val []string) {
-	var oval = GetV(o, nil, keys);
+	var oval = GetV(o, nil, keys...);
 	return AsStringSlice(oval, 0);
 }
 
@@ -622,16 +622,16 @@ func GetStringMap(o interface{}, createifnil bool, keys ... interface{}) (val ma
 
 
 
-func ColRowToMaps(cols []string, rows []interface{}, mapper * Mapper) ([]map[string]interface{}, error) {
+func ColRowToMaps(cols []string, rows []interface{}, mapper * Mapper) ([]interface{}, error) {
 	var rowcount = len(rows);
 	var colcount = len(cols);
-	var maps = make([]map[string]interface{}, rowcount);
+	var maps = make([]interface{}, rowcount);
 	for r := 0; r < rowcount; r++ {
 		var m = make(map[string]interface{})
 		var row = rows[r].([]interface{});
 		for c := 0; c < colcount; c++ {
 			var col = cols[c];
-			m[col] = row[r];
+			m[col] = row[c];
 		}
 		if (mapper != nil) {
 			_, err := mapper.Map(m, false);
