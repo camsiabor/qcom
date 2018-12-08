@@ -1,8 +1,8 @@
-package util
+package qref
 
 import (
 	"fmt"
-	"github.com/camsiabor/qcom/util/qref"
+	"github.com/camsiabor/qcom/util/util"
 	"github.com/pkg/errors"
 	"reflect"
 	"strings"
@@ -46,7 +46,7 @@ func (o * MapperManager) Init(options map[string]interface{}) {
 
 	var common * Mapper;
 	var allname = "all";
-	var all = GetMap(options, false, allname);
+	var all = util.GetMap(options, false, allname);
 	if (all != nil) {
 		common = &Mapper{};
 		common.Init(allname, all, nil);
@@ -54,7 +54,7 @@ func (o * MapperManager) Init(options map[string]interface{}) {
 	}
 	for name, opt := range options {
 		var mapper = &Mapper{};
-		var optm = AsMap(opt, false);
+		var optm = util.AsMap(opt, false);
 		if (optm != nil) {
 			mapper.Init(name, optm, common);
 			o.Register(name, mapper);
@@ -113,20 +113,20 @@ func (o * Mapper) Init(name string, options map[string]interface{}, inherit * Ma
 		var create bool = false;
 		var kind = reflect.ValueOf(mapic).Kind();
 		if (kind == reflect.Map) {
-			nameto = GetStr(mapic, "", "nameto");
-			convert = GetStr(mapic, "", "convert")
-			create = GetBool(mapic, false, "create");
-			actslice := GetSlice(mapic, "acts");
+			nameto = util.GetStr(mapic, "", "nameto");
+			convert = util.GetStr(mapic, "", "convert")
+			create = util.GetBool(mapic, false, "create");
+			actslice := util.GetSlice(mapic, "acts");
 			if (actslice != nil && len(actslice) > 0) {
 				acts = make([]MapiAct, len(actslice));
 				for i, oneact := range actslice {
-					var actm = AsMap(oneact, false);
-					acts[i].Act = GetStr(actm, "", "act");
-					acts[i].Args = GetSlice(actm, "args");
+					var actm = util.AsMap(oneact, false);
+					acts[i].Act = util.GetStr(actm, "", "act");
+					acts[i].Args = util.GetSlice(actm, "args");
 				}
 			}
 		} else if (kind == reflect.String) {
-			nameto = AsStr(mapic, "");
+			nameto = util.AsStr(mapic, "");
 		}
 		mapi = &Mapi{
 			Name : mapiname,
@@ -162,7 +162,7 @@ func (o * Mapper) Maps(m []interface{}, clone bool) (rms []interface{}, err erro
 
 func (o * Mapper) Map(mo interface{}, clone bool) (rm map[string]interface{}, err error) {
 
-	var m = AsMap(mo, false);
+	var m = util.AsMap(mo, false);
 	if (m == nil) {
 		return nil, fmt.Errorf("not map %v", mo);
 	}
@@ -192,12 +192,12 @@ func (o * Mapper) Map(mo interface{}, clone bool) (rm map[string]interface{}, er
 					if (defargs != nil) {
 						args = append(args, defargs...);
 					}
-					rets, err := qref.FuncCallByName(o, act, args);
+					rets, err := FuncCallByName(o, act, args);
 					if (err != nil) {
 						return rm, err;
 					}
 					if (len(rets) >= 2) {
-						err = AsError(rets[1].Interface());
+						err = util.AsError(rets[1].Interface());
 						if (err != nil) {
 							return rm, err;
 						}
@@ -209,7 +209,7 @@ func (o * Mapper) Map(mo interface{}, clone bool) (rm map[string]interface{}, er
 			}
 
 			if (len(mapi.Convert) > 0) {
-				v, err = AsWithErr(mapi.Convert, v);
+				v, err = util.AsWithErr(mapi.Convert, v);
 				if (err != nil) {
 					return rm, err;
 				}
@@ -227,11 +227,11 @@ func (o * Mapper) Map(mo interface{}, clone bool) (rm map[string]interface{}, er
 }
 
 func (o * Mapper) Replace(args []interface{}) interface{} {
-	var v = AsStr(args[0], "");
-	var oldstrs = AsSlice(args[1], 0);
-	var newstr = AsStr(args[1], "");
+	var v = util.AsStr(args[0], "");
+	var oldstrs = util.AsSlice(args[1], 0);
+	var newstr = util.AsStr(args[1], "");
 	for i := 0; i < len(oldstrs); i++ {
-		var oldstr = AsStr(oldstrs[i], "");
+		var oldstr = util.AsStr(oldstrs[i], "");
 		v = strings.Replace(v, oldstr, newstr, -1);
 	}
 	return v;
@@ -239,11 +239,11 @@ func (o * Mapper) Replace(args []interface{}) interface{} {
 
 func (o * Mapper) TimeFormat(args []interface{}) interface{} {
 	var arg0 = args[0];
-	var format = AsStr(args[1], "2006-01-02 15:04:15");
+	var format = util.AsStr(args[1], "2006-01-02 15:04:15");
 	if (arg0 == nil) {
 		return time.Now().Format(format);
 	}
-	var v = AsTime(arg0, nil);
+	var v = util.AsTime(arg0, nil);
 	if (v == nil) {
 		return time.Now().Format(format);
 	}
@@ -253,18 +253,18 @@ func (o * Mapper) TimeFormat(args []interface{}) interface{} {
 
 func (o * Mapper) TimeUnix(args []interface{}) interface{} {
 	var arg0 = args[0];
-	var multiple = GetInt64(args, 1, 2);
+	var multiple = util.GetInt64(args, 1, 2);
 	if (arg0 == nil) {
 		return time.Now().Unix() * multiple;
 	}
-	var format = GetStr(args, "", 1);
+	var format = util.GetStr(args, "", 1);
 	if (len(format) > 0) {
-		var t, err = time.Parse(format, AsStr(arg0, ""));
+		var t, err = time.Parse(format, util.AsStr(arg0, ""));
 		if (err == nil) {
 			return t.Unix() * multiple;
 		}
 	}
-	var t = AsTime(arg0, nil);
+	var t = util.AsTime(arg0, nil);
 	if (t == nil) {
 		return time.Now().Unix() * multiple;
 	}

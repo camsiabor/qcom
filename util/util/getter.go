@@ -2,8 +2,8 @@ package util
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 	"github.com/camsiabor/qcom/util/qtime"
+	"github.com/pkg/errors"
 	"reflect"
 	"strconv"
 	"time"
@@ -622,7 +622,7 @@ func GetStringMap(o interface{}, createifnil bool, keys ... interface{}) (val ma
 
 
 
-func ColRowToMaps(cols []string, rows []interface{}, mapper * Mapper) ([]interface{}, error) {
+func ColRowToMaps(cols []string, rows []interface{}) ([]interface{}, error) {
 	var rowcount = len(rows);
 	var colcount = len(cols);
 	var maps = make([]interface{}, rowcount);
@@ -632,12 +632,6 @@ func ColRowToMaps(cols []string, rows []interface{}, mapper * Mapper) ([]interfa
 		for c := 0; c < colcount; c++ {
 			var col = cols[c];
 			m[col] = row[c];
-		}
-		if (mapper != nil) {
-			_, err := mapper.Map(m, false);
-			if (err != nil) {
-				return nil, err;
-			}
 		}
 		maps[r] = m;
 	}
