@@ -17,6 +17,8 @@ type SCache struct {
 	mutex sync.RWMutex;
 	data map[string]interface{};
 	Loader SCacheLoader;
+	Db string;
+	Dao string;
 }
 
 
