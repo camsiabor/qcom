@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-type SCacheLoader func(scache * SCache, keys [] string) (interface{}, error) ;
+type SCacheLoader func(scache * SCache, keys ... string) (interface{}, error) ;
 
 type SCacheManager struct {
 	mutex sync.Mutex;
@@ -19,6 +19,9 @@ type SCache struct {
 	Loader SCacheLoader;
 	Db string;
 	Dao string;
+	Path []string;
+	Root * SCache;
+	Parent * SCache;
 }
 
 
@@ -35,9 +38,16 @@ func GetCacheManager() (*SCacheManager) {
 }
 
 
-func NewSCache() (* SCache) {
-	var scache = new(SCache);
-	scache.data = make(map[string]interface{});
+func NewSCache(root * SCache, parent * SCache, path ... string) (* SCache) {
+	var scache = &SCache{
+		Path : path,
+		Root : root,
+		Parent: parent,
+		data : make(map[string]interface{}),
+	}
+	if (root == nil) {
+		scache.Root = scache;
+	}
 	return scache;
 }
 
@@ -51,28 +61,53 @@ func (o * SCacheManager) Get(name string) (*SCache) {
 		defer o.mutex.Unlock();
 		c = o.caches[name];
 		if (c == nil) {
-			c = NewSCache();
+			c = NewSCache(nil, nil);
 			o.caches[name] = c;
 		}
 	}
 	return c;
 }
 
+func (o * SCache) Load(key string)  (val interface{}, err error){
+	if (o.Loader == nil) {
+		if (o.Root == nil || o.Root == o) {
+			return nil, nil;
+		}
+		var actor = o;
+		var child = o;
+		for {
+			actor = actor.Parent;
+			if (actor == nil) {
+				break;
+			}
+			if (actor.Loader != nil) {
+				var actorkeys = append(child.Path, key);
+				val, err = actor.Loader(actor, actorkeys...);
+				if (err != nil || val != nil) {
+					break;
+				}
+			}
+			child = child.Parent;
+		}
+	} else {
+		val, err = o.Loader(o, key);
+	}
 
-func (o * SCache) Get(key string, load bool) (val interface{}, err error) {
+	if (val != nil) {
+		o.Set(val, key);
+	}
+
+	return val, err;
+}
+
+func (o * SCache) Get(load bool, key string) (val interface{}, err error) {
 	o.mutex.RLock();
 	val = o.data[key];
 	o.mutex.RUnlock();
-	if (val == nil && load && o.Loader != nil) {
-		val, err = o.Loader(o, []string { key });
-		if (err != nil) {
-			return  val, err;
-		}
-		if (val != nil) {
-			o.Set(val, key);
-		}
+	if (val == nil && load) {
+		val, err = o.Load(key);
 	}
-	return val, nil;
+	return val, err;
 }
 
 func (o * SCache) List(load bool, keys ... string) (vals []interface{}, err error) {
@@ -81,12 +116,14 @@ func (o * SCache) List(load bool, keys ... string) (vals []interface{}, err erro
 	vals = make([]interface{}, keylen);
 	for i := 0; i < keylen; i++ {
 		var key = keys[i];
-		val, err := o.Get(key, load);
+		val, err := o.Get(load, key);
 		if (err != nil) {
 			return nil, err;
 		}
-		vals[valsindex]  = val;
-		valsindex = valsindex + 1;
+		if (val != nil) {
+			vals[valsindex]  = val;
+			valsindex = valsindex + 1;
+		}
 	}
 	return vals[:valsindex], err;
 }
@@ -132,7 +169,7 @@ func (o * SCache) GetSubEx(index int, keys ... string) (* SCache) {
 			current.mutex.Lock();
 			sub, _ = current.data[key];
 			if (sub == nil) {
-				sub = NewSCache();
+				sub = NewSCache(o.Root, o, keys...);
 				current.data[key] = sub;
 			}
 			current.mutex.Unlock();
@@ -151,21 +188,11 @@ func (o * SCache) GetSubEx(index int, keys ... string) (* SCache) {
 	return nil;
 }
 
-func (o * SCache) GetSubVal(keys ... string) (val interface{}, err error) {
+func (o * SCache) GetSubVal(load bool, keys ... string) (val interface{}, err error) {
 	var keyslen = len(keys);
 	var sub = o.GetSubEx(1, keys...);
 	var key = keys[keyslen - 1];
-	val, _ =  sub.Get(key, false);
-	if (val == nil && o.Loader != nil) {
-		val, err = o.Loader(o, keys);
-		if (err != nil) {
-			return val, err;
-		}
-		if (val != nil) {
-			o.SetSubVal(val, keys...);
-		}
-	}
-	return val, nil;
+	return sub.Get(load, key);
 }
 
 func (o * SCache) SetSubVal(val interface{}, keys ... string) {
