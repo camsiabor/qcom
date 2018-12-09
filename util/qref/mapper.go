@@ -25,6 +25,8 @@ type Mapi struct {
 
 type Mapper struct {
 	Name string;
+	lock sync.RWMutex;
+	data map[string]interface{};
 	mapis map[string] * Mapi;
 }
 
@@ -90,12 +92,16 @@ func (o * MapperManager) UnRegister(name string) {
 	delete(o.mappers, name);
 }
 
+
+
 func (o * Mapper) Init(name string, options map[string]interface{}, inherit * Mapper) {
 	o.Name = name;
+	if (o.data == nil) {
+		o.data = make(map[string]interface{});
+	}
 	if (o.mapis == nil) {
 		o.mapis = make(map[string] * Mapi)
 	}
-
 	if (inherit != nil){
 		for mapiname, mapic := range inherit.mapis {
 			o.mapis[mapiname] = mapic;
@@ -137,6 +143,19 @@ func (o * Mapper) Init(name string, options map[string]interface{}, inherit * Ma
 		}
 		o.mapis[mapiname] = mapi;
 	}
+}
+
+func (o * Mapper) GetData(key string) interface{} {
+	o.lock.RLock();
+	val := o.data[key];
+	defer o.lock.RUnlock();
+	return val;
+}
+
+func (o * Mapper) SetData(key string, val interface{}) {
+	o.lock.Lock();
+	defer o.lock.Lock();
+	o.data[key] = val;
 }
 
 func (o * Mapper) Maps(m []interface{}, clone bool) (rms []interface{}, err error) {
