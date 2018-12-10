@@ -2,10 +2,15 @@ package qos
 
 import (
 	"bytes"
+	"os"
 	"os/exec"
 	"time"
 )
 
+
+func EnvReplace() {
+	os.Environ();
+}
 
 func ExecCmd(timeoutsec int, cmd string, args ... string) (stdoutstr string,stderrstr string, dotimeout bool, err error) {
 

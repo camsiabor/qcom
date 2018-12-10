@@ -9,7 +9,6 @@ import (
 	"time"
 )
 
-
 func AsStr(o interface{}, defaultval string) (r string) {
 	if (o == nil) {
 		return defaultval;
