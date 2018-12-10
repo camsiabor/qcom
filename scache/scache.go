@@ -70,6 +70,13 @@ func (o * SCacheManager) Get(name string) (*SCache) {
 }
 
 func (o * SCacheManager) RGet(arg qrpc.QArg, reply * qrpc.QArg) {
+	defer reply.Recover();
+	var cacherName, _ = arg.GetStr(0, "");
+	var cacher = o.Get(cacherName);
+	if (cacher == nil) {
+		reply.DoError("cacher not found : " + cacherName, 0);
+		return;
+	}
 
 }
 
