@@ -2,6 +2,7 @@ package scache
 
 import (
 	"fmt"
+	"github.com/camsiabor/qcom/qrpc"
 	"github.com/patrickmn/go-cache"
 	"sync"
 )
@@ -66,6 +67,10 @@ func (o * SCacheManager) Get(name string) (*SCache) {
 		}
 	}
 	return c;
+}
+
+func (o * SCacheManager) RGet(arg qrpc.QArg, reply * qrpc.QArg) {
+
 }
 
 func (o * SCache) Load(key string)  (val interface{}, err error){
