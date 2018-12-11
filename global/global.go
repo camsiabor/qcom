@@ -49,6 +49,7 @@ type Global struct {
 	LogPath     string;
 	TimeZone    string;
 	ConfigPath  string;
+	Version 	string;
 	Config      map[string]interface{};
 	Continue    bool;
 	state       int;

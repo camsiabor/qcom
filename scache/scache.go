@@ -17,6 +17,7 @@ type SCacheManager struct {
 type SCache struct {
 	mutex sync.RWMutex;
 	data map[string]interface{};
+	Initer SCacheLoader;
 	Loader SCacheLoader;
 	Db string;
 	Dao string;
@@ -122,6 +123,7 @@ func (o * SCache) Get(load bool, key string) (val interface{}, err error) {
 	return val, err;
 }
 
+
 func (o * SCache) List(load bool, keys ... string) (vals []interface{}, err error) {
 	var valsindex = 0;
 	var keylen = len(keys);
@@ -219,10 +221,42 @@ func (o * SCache) SetSubVals(vals []interface{}, keys []string, pathes ... strin
 	sub.Sets(vals, keys);
 }
 
+func (o * SCache) Keys() ([]string, error) {
+	var keys = make([]string, len(o.data));
+	o.mutex.RLock();
+	defer o.mutex.RUnlock();
+	var i = 0;
+	for key := range o.data {
+		keys[i] = key;
+		i++;
+	}
+	return keys, nil;
+}
+
+func (o * SCache) Values() ([]interface{}, error) {
+	var vals = make([]interface{}, len(o.data));
+	o.mutex.RLock();
+	defer o.mutex.RUnlock();
+	var i = 0;
+	for _, val := range o.data {
+		if (val == nil) {
+			continue;
+		}
+		var _, ok = val.(*SCache);
+		if (ok) {
+			continue;
+		}
+		vals[i] = val;
+		i++;
+	}
+	return vals, nil;
+}
+
+
 func (o * SCache) GetAll() (retm map[string]interface{}, err error) {
 	retm = make(map[string]interface{})
 	o.mutex.RLock();
-	defer o.mutex.Unlock();
+	defer o.mutex.RUnlock();
 	for key, item := range o.data {
 		if (item == nil) {
 			continue;
