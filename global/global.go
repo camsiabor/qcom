@@ -49,11 +49,12 @@ type Global struct {
 	LogPath     string;
 	TimeZone    string;
 	ConfigPath  string;
-	Continue    bool;
 	Config      map[string]interface{};
+	Continue    bool;
 	state       int;
 	lock 		sync.RWMutex;
 	chCmdBus    chan * Cmd;
+	data		map[string]interface{};
 	cmdHandlers map[string]CmdHandler;
 	PanicHandler func(pan interface{});
 }
@@ -61,6 +62,7 @@ type Global struct {
 var _instance * Global = &Global{
 	chCmdBus : make(chan * Cmd, 1024),
 	cmdHandlers : make(map[string]CmdHandler),
+	data : make(map[string]interface{}),
 }
 
 func GetInstance() * Global {
@@ -78,14 +80,8 @@ func (g * Global) Run() {
 
 
 func (g * Global) cmdLoop() {
-	for g.Continue {
-		select {
-		case cmd, ok := <- g.chCmdBus:
-			if (!ok) {
-				break;
-			}
-			go g.cmdDispatch(cmd);
-		}
+	for cmd := range g.chCmdBus {
+		go g.cmdDispatch(cmd);
 	}
 }
 
@@ -192,5 +188,21 @@ func (g * Global) SendCmd(cmd * Cmd) (interface{}, error){
 	return cmd.RetVal, cmd.RetErr;
 }
 
+func (g * Global) GetData(key string) interface{} {
+	g.lock.RLock();
+	defer g.lock.RUnlock();
+	return g.data[key];
+}
+
+func (g * Global) SetData(key string, val interface{}) (* Global) {
+	g.lock.Lock();
+	defer g.lock.Unlock();
+	g.data[key] = val;
+	return g;
+}
+
+func (g * Global) Data() (map[string]interface{}) {
+	return g.data;
+}
 
 
