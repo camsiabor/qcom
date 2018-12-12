@@ -84,7 +84,7 @@ func (o * SCacheManager) RGet(arg qrpc.QArg, reply * qrpc.QArg) {
 func (o * SCache) Load(key string)  (val interface{}, err error){
 	if (o.Loader == nil) {
 		if (o.Root == nil || o.Root == o) {
-			return nil, nil;
+			return o.Get(false, key);
 		}
 		var actor = o;
 		var child = o;

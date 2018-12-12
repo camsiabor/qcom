@@ -8,11 +8,19 @@ import (
 )
 
 func Date2Int(t * time.Time) (int) {
+	if (t == nil) {
+		var n = time.Now();
+		t = &n;
+	}
 	var y, m, d = t.Date();
 	return int(y * 10000) + int(m * 100) + d;
 }
 
 func Time2Int64(t * time.Time) (int64) {
+	if (t == nil) {
+		var n = time.Now();
+		t = &n;
+	}
 	var y, m, d = t.Date();
 	var hour, min, sec = t.Clock();
 	var date = int64(y * 10000000000) + int64(m * 100000000) + int64(d * 1000000);
@@ -57,6 +65,10 @@ func ParseTime(s string) (* time.Time, error) {
 }
 
 func TimeInterval(t1 * time.Time, t2 * time.Time, duration time.Duration) float64 {
+	if (t2 == nil) {
+		var n = time.Now();
+		t2 = &n;
+	}
 	var interval = float64(t1.UnixNano() - t2.UnixNano())
 	var d = float64(duration);
 	return math.Ceil(interval / d);
