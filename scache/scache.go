@@ -175,22 +175,24 @@ func (o * SCache) GetSubEx(index int, keys ... string) (* SCache) {
 	var keyslen = len(keys) - 1 - index;
 	for i, key := range keys {
 		var exist = true;
-		current.mutex.RLock();
+		// current.mutex.RLock();
 		var sub = current.data[key];
 		if (sub == nil) {
 			exist = false;
-			current.mutex.RUnlock();
+			// current.mutex.RUnlock();
 			current.mutex.Lock();
 			sub, _ = current.data[key];
 			if (sub == nil) {
-				sub = NewSCache(o.Root, o, keys...);
+				var keylen_minus_index = len(keys) - index;
+				var path = keys[:keylen_minus_index];
+				sub = NewSCache(o.Root, o, path...);
 				current.data[key] = sub;
 			}
 			current.mutex.Unlock();
 		}
 
 		if (exist) {
-			current.mutex.RUnlock();
+			// current.mutex.RUnlock();
 		}
 
 		var subscache = sub.(* SCache);
