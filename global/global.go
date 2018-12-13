@@ -45,7 +45,8 @@ type CmdHandler interface {
 	HandleCmd(cmd * Cmd) (interface{}, error);
 }
 
-type Global struct {
+type G struct {
+	Mode 		string;
 	LogPath     string;
 	TimeZone    string;
 	ConfigPath  string;
@@ -60,17 +61,17 @@ type Global struct {
 	PanicHandler func(pan interface{});
 }
 
-var _instance * Global = &Global{
+var _instance *G = &G{
 	chCmdBus : make(chan * Cmd, 1024),
 	cmdHandlers : make(map[string]CmdHandler),
 	data : make(map[string]interface{}),
 }
 
-func GetInstance() * Global {
+func GetInstance() *G {
 	return _instance
 }
 
-func (g * Global) Run() {
+func (g *G) Run() {
 	g.lock.Lock()
 	defer g.lock.Unlock();
 	if (g.state == 0) {
@@ -80,13 +81,13 @@ func (g * Global) Run() {
 }
 
 
-func (g * Global) cmdLoop() {
+func (g *G) cmdLoop() {
 	for cmd := range g.chCmdBus {
 		go g.cmdDispatch(cmd);
 	}
 }
 
-func (g * Global) cmdRecover() {
+func (g *G) cmdRecover() {
 	var pan = recover();
 	if (pan != nil) {
 		if (g.PanicHandler == nil) {
@@ -97,7 +98,7 @@ func (g * Global) cmdRecover() {
 	}
 }
 
-func (g * Global) cmdDispatch(cmd * Cmd) {
+func (g *G) cmdDispatch(cmd * Cmd) {
 	defer g.cmdRecover();
 	var handlers = g.CmdHandlerFilter(cmd);
 	if (handlers == nil || len(handlers) == 0) {
@@ -108,7 +109,7 @@ func (g * Global) cmdDispatch(cmd * Cmd) {
 	}
 }
 
-func (g * Global) cmdHandle(cmd * Cmd, handler CmdHandler) {
+func (g *G) cmdHandle(cmd * Cmd, handler CmdHandler) {
 	defer g.cmdRecover();
 	cmd.RetVal, cmd.RetErr = handler.HandleCmd(cmd);
 	if (cmd.RetChan != nil) {
@@ -119,7 +120,7 @@ func (g * Global) cmdHandle(cmd * Cmd, handler CmdHandler) {
 	}
 }
 
-func (g * Global) CmdHandlerRegister(name string, handler CmdHandler) error {
+func (g *G) CmdHandlerRegister(name string, handler CmdHandler) error {
 	if (handler == nil) {
 		return errors.New("handler is null : " + name);
 	}
@@ -129,14 +130,14 @@ func (g * Global) CmdHandlerRegister(name string, handler CmdHandler) error {
 	return nil;
 }
 
-func (g * Global) CmdHandlerUnRegister(name string) error {
+func (g *G) CmdHandlerUnRegister(name string) error {
 	g.lock.Lock();
 	defer g.lock.Unlock();
 	delete(g.cmdHandlers, name);
 	return nil;
 }
 
-func (g * Global) CmdHandlerGet(name string) (handler CmdHandler, err error) {
+func (g *G) CmdHandlerGet(name string) (handler CmdHandler, err error) {
 	g.lock.RLock();
 	defer g.lock.RUnlock();
 	handler = g.cmdHandlers[name];
@@ -146,7 +147,7 @@ func (g * Global) CmdHandlerGet(name string) (handler CmdHandler, err error) {
 	return handler, err;
 }
 
-func (g * Global) CmdHandlerFilter(cmd * Cmd) []CmdHandler {
+func (g *G) CmdHandlerFilter(cmd * Cmd) []CmdHandler {
 	g.lock.RLock()
 	defer g.lock.RUnlock();
 	var count = 0;
@@ -164,7 +165,7 @@ func (g * Global) CmdHandlerFilter(cmd * Cmd) []CmdHandler {
 	return handlers[:count];
 }
 
-func (g * Global) SendCmd(cmd * Cmd) (interface{}, error){
+func (g *G) SendCmd(cmd * Cmd) (interface{}, error){
 	g.chCmdBus <- cmd;
 	if (cmd.Timeout < 0) {
 		cmd.Timeout = 365 * 24 * time.Hour;
@@ -189,20 +190,20 @@ func (g * Global) SendCmd(cmd * Cmd) (interface{}, error){
 	return cmd.RetVal, cmd.RetErr;
 }
 
-func (g * Global) GetData(key string) interface{} {
+func (g *G) GetData(key string) interface{} {
 	g.lock.RLock();
 	defer g.lock.RUnlock();
 	return g.data[key];
 }
 
-func (g * Global) SetData(key string, val interface{}) (* Global) {
+func (g *G) SetData(key string, val interface{}) (*G) {
 	g.lock.Lock();
 	defer g.lock.Unlock();
 	g.data[key] = val;
 	return g;
 }
 
-func (g * Global) Data() (map[string]interface{}) {
+func (g *G) Data() (map[string]interface{}) {
 	return g.data;
 }
 

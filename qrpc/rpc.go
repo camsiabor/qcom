@@ -2,8 +2,8 @@ package qrpc
 
 import (
 	"fmt"
-	"github.com/camsiabor/qcom/util/qref"
-	"github.com/camsiabor/qcom/util/util"
+	"github.com/camsiabor/qcom/qref"
+	"github.com/camsiabor/qcom/util"
 	"reflect"
 	"time"
 )

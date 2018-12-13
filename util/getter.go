@@ -2,7 +2,7 @@ package util
 
 import (
 	"fmt"
-	"github.com/camsiabor/qcom/util/qtime"
+	"github.com/camsiabor/qcom/qtime"
 	"github.com/pkg/errors"
 	"reflect"
 	"strconv"

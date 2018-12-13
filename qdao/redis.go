@@ -3,7 +3,7 @@ package qdao
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/camsiabor/qcom/util/qref"
+	"github.com/camsiabor/qcom/qref"
 	"github.com/gomodule/redigo/redis"
 	"github.com/pkg/errors"
 	"strconv"

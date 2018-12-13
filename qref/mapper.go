@@ -2,7 +2,7 @@ package qref
 
 import (
 	"fmt"
-	"github.com/camsiabor/qcom/util/util"
+	"github.com/camsiabor/qcom/util"
 	"github.com/pkg/errors"
 	"reflect"
 	"strings"

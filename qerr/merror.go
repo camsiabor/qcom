@@ -2,8 +2,8 @@ package qerr
 
 import (
 	"fmt"
-	"github.com/camsiabor/qcom/util/qlog"
-	"github.com/camsiabor/qcom/util/util"
+	"github.com/camsiabor/qcom/qlog"
+	"github.com/camsiabor/qcom/util"
 	"time"
 )
 

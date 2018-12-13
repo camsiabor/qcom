@@ -3,7 +3,7 @@ package qconfig
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/camsiabor/qcom/util/util"
+	"github.com/camsiabor/qcom/util"
 	"io/ioutil"
 	"os"
 	"reflect"

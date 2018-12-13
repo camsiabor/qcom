@@ -1,6 +1,6 @@
 package wrap
 
-import "github.com/camsiabor/qcom/util/util"
+import "github.com/camsiabor/qcom/util"
 
 type UtilWrap int;
 

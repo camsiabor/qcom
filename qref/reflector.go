@@ -3,7 +3,7 @@ package qref
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/camsiabor/qcom/util/util"
+	"github.com/camsiabor/qcom/util"
 	"reflect"
 	"runtime"
 	"strings"
