@@ -10,36 +10,36 @@ import (
 
 
 // CheckLock tries to obtain an exclude lock on a lockfile and returns an error if one occurs
-func (s * FileLock) Lock() error {
-	if (s.file != nil) {
+func (o * FileLock) Lock() error {
+	if (o.file != nil) {
 		return nil;
 	}
-	var tmpname = s.name + ".pre";
-	if err := os.Rename(s.name, tmpname); err != nil && !os.IsNotExist(err) {
+	var tmpname = o.name + ".pre";
+	if err := os.Rename(o.name, tmpname); err != nil && !os.IsNotExist(err) {
 		return err;
 	}
-	os.Rename(tmpname, s.name);
-	file, err := os.OpenFile(s.name, os.O_EXCL|os.O_CREATE, 0600)
+	os.Rename(tmpname, o.name);
+	file, err := os.OpenFile(o.name, os.O_CREATE, 0600)
 	if err != nil {
 		return err
 	}
-	s.file = file
+	o.file = file
 	return nil
 }
 
 // TryUnlock closes and removes the lockfile
-func (s *FileLock) UnLock() error {
-	if (s.file == nil) {
+func (o *FileLock) UnLock() error {
+	if (o.file == nil) {
 		return nil;
 	}
-	if err := s.file.Close(); err != nil {
+	if err := o.file.Close(); err != nil {
 		return err;
 	}
-	s.file = nil;
-	var tmpname = s.name + ".pre";
-	if err := os.Rename(s.name, tmpname); err != nil {
+	o.file = nil;
+	var tmpname = o.name + ".pre";
+	if err := os.Rename(o.name, tmpname); err != nil {
 		return err;
 	}
-	os.Rename(tmpname, s.name);
+	os.Rename(tmpname, o.name);
 	return nil
 }

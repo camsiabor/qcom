@@ -1,13 +1,14 @@
 package qlog
 
 import (
-	"bitbucket.org/avd/go-ipc/sync"
 	"fmt"
 	"github.com/camsiabor/qcom/util"
+	"io"
 	"log"
 	"os"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -24,15 +25,16 @@ const CODEINFO = 1000;
 var LevelStr = [6]string{"VERBOSE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"}
 
 type Logi struct {
-	Dir      string;
-	file     * os.File;
-	today    time.Time;
-	tomorrow time.Time;
-	agents   [] * log.Logger;
-	Flag     int;
-	Level    int;
-	ToStdout bool;
-	lock     sync.RWMutex;
+	today      time.Time;
+	tomorrow   time.Time;
+	writers    [] io.WriteCloser;
+	agents     [] * log.Logger;
+	lock       sync.RWMutex;
+	Dir        string;
+	Level      int;
+	ToStdout   bool;
+	LogFlag    int;
+	LogPrefix  string;
 	FilePrefix string;
 	FileSuffix string;
 }
@@ -40,11 +42,11 @@ type Logi struct {
 
 var _loggerManager = &LogManager{
 	def : &Logi{
-		Dir : "log",
+		Dir :       "log",
 		FileSuffix: ".log",
-		Level : INFO,
-		ToStdout: true,
-		Flag : log.Ltime,
+		Level :     INFO,
+		ToStdout:   true,
+		LogFlag:    log.Ltime,
 	},
 	loggers : map[string] * Logi {},
 }
@@ -79,12 +81,37 @@ func (o * LogManager) Set(key string, logi * Logi) {
 func (o * Logi) Destroy () {
 	o.lock.Lock();
 	defer o.lock.Unlock();
-	if (o.file != nil) {
-		o.file.Sync();
-		o.file.Close();
-		o.file = nil;
+	if (o.writers != nil) {
+		for _, writer := range o.writers {
+			writer.Close();
+		}
+		o.writers = nil;
+		o.agents = nil;
 	}
 	o.agents = nil;
+}
+
+func (o * Logi) AddWriter(writer io.WriteCloser, prefix string, flag int, lock bool) {
+	if (writer != nil) {
+		if (flag <= 0) {
+			flag = o.LogFlag;
+		}
+		if (len(prefix) == 0) {
+			prefix = o.LogPrefix;
+		}
+		if (lock) {
+			o.lock.Lock();
+			defer o.lock.Unlock();
+		}
+		if (o.writers == nil) {
+			o.writers = make([]io.WriteCloser, 2);
+		}
+		if (o.agents == nil) {
+			o.agents = make([] * log.Logger, 2);
+		}
+		o.writers = append(o.writers, writer);
+		o.agents = append(o.agents, log.New(writer, prefix, flag));
+	}
 }
 
 func (o * Logi) LogEx(level int, stackSkip int, v ... interface{}) {
@@ -107,33 +134,33 @@ func (o * Logi) LogEx(level int, stackSkip int, v ... interface{}) {
 		o.Destroy();
 	}
 
-	if o.file == nil {
+	if o.writers == nil {
 		func() {
 			o.lock.Lock();
-			defer o.lock.Lock();
-			if (o.file != nil) {
+			defer o.lock.Unlock();
+			if (o.writers != nil) {
 				return;
 			}
+			o.agents = nil;
 
 			o.today = today
 			o.tomorrow = today.AddDate(0, 0, 1);
 			var filename = o.FilePrefix + today.Format("20060102") + o.FileSuffix;
 			var filepath = o.Dir + "/" + filename
-			var err= os.MkdirAll("log", 0774)
-			if err != nil {
-				err.Error()
+			if err := os.MkdirAll("log", 0774); err != nil {
+				panic(err);
 			}
-			o.file, err = os.OpenFile(filepath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 
+			var file, err = os.OpenFile(filepath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 			if err != nil {
-				err.Error()
+				panic(err);
 			}
-			o.agents = make([] * log.Logger, 2);
-			o.agents = append(o.agents, log.New(o.file, "", o.Flag | log.Ltime));
 
+			o.AddWriter(file, o.LogPrefix, o.LogFlag, false);
 			if o.ToStdout {
-				o.agents = append(o.agents, log.New(os.Stdout, "", o.Flag | log.Ltime | log.Ldate));
+				o.AddWriter(os.Stdout, o.LogPrefix, o.LogFlag, false);
 			}
+
 		}();
 
 
