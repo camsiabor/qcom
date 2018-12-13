@@ -2,6 +2,7 @@ package global
 
 import (
 	"github.com/pkg/errors"
+	"net"
 	"sync"
 	"time"
 )
@@ -59,6 +60,7 @@ type G struct {
 	data		map[string]interface{};
 	cmdHandlers map[string]CmdHandler;
 	PanicHandler func(pan interface{});
+	Listener  	net.Listener;
 }
 
 var _instance *G = &G{

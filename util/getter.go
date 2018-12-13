@@ -496,70 +496,32 @@ func Get(o interface{}, defaultval interface{}, keys ... interface{ } ) (r inter
 	}
 	var current = o;
 	for _, key := range keys {
-		//fmt.Println(reflect.TypeOf(key).String());
-		//fmt.Println(key, reflect.TypeOf(key).Name(), reflect.ValueOf(key).String());
-		switch key.(type) {
-		case string:
-			var skey = key.(string);
-			var m = current.(map[string]interface{});
-			r = m[skey];
-			if (r == nil) {
-				return defaultval
-			}
-			current = r;
-		default:
+		var subrefv reflect.Value;
+		var refv = reflect.ValueOf(current);
+		switch refv.Kind() {
+		case reflect.Map:
+			var refkey = reflect.ValueOf(key);
+			subrefv = refv.MapIndex(refkey)
+		case reflect.Slice, reflect.Array:
 			var ikey = AsInt(key, -404);
-			if (key == -404) {
-				return defaultval
-			}
-			var l = current.([]interface{});
-			r = l[ikey];
-			if (r == nil) {
-				return defaultval
-			}
-			current = r;
-		}
-
-	}
-	return r;
-}
-
-
-func GetV(o interface{}, defaultval interface{}, keys ... interface{ } ) (r interface {}) {
-	if (o == nil) {
-		return defaultval;
-	}
-	var current = o;
-	for _, key := range keys {
-		switch key.(type) {
-		case string:
+			subrefv = refv.Index(ikey);
+		case reflect.Ptr:
+			subrefv = refv.Elem();
+		case reflect.Struct:
 			var skey = key.(string);
-			var m = current.(map[string]interface{});
-			r = m[skey];
-			if (r == nil) {
-				return defaultval
-			}
-			current = r;
-		default:
-			var ikey = AsInt(key, -404);
-			if (key == -404) {
-				return defaultval
-			}
-			var l = current.([]interface{});
-			r = l[ikey];
-			if (r == nil) {
-				return defaultval
-			}
-			current = r;
+			subrefv = refv.FieldByName(skey);
 		}
-
+		if (!subrefv.IsValid()) {
+			return defaultval;
+		}
+		current = subrefv.Interface();
 	}
-	return r;
+	return current;
 }
 
 
 func GetStr(o interface{}, defaultval string, keys ... interface {}) (val string) {
-	var oval = GetV(o, nil, keys...);
+	var oval = Get(o, nil, keys...);
 	if oval == nil {
 		return defaultval
 	}
@@ -567,7 +529,7 @@ func GetStr(o interface{}, defaultval string, keys ... interface {}) (val string
 }
 
 func GetInt(o interface{}, defaultval int, keys ... interface{}) (val int) {
-	var oval = GetV(o, nil, keys...);
+	var oval = Get(o, nil, keys...);
 	if oval == nil {
 		return defaultval
 	}
@@ -575,7 +537,7 @@ func GetInt(o interface{}, defaultval int, keys ... interface{}) (val int) {
 }
 
 func GetInt64(o interface{}, defaultval int64, keys ... interface{}) (val int64) {
-	var oval = GetV(o, nil, keys...);
+	var oval = Get(o, nil, keys...);
 	if oval == nil {
 		return defaultval
 	}
@@ -583,7 +545,7 @@ func GetInt64(o interface{}, defaultval int64, keys ... interface{}) (val int64)
 }
 
 func GetFloat64(o interface{}, defaultval float64, keys ... interface{}) (val float64) {
-	var oval = GetV(o, nil, keys...);
+	var oval = Get(o, nil, keys...);
 	if oval == nil {
 		return defaultval
 	}
@@ -592,7 +554,7 @@ func GetFloat64(o interface{}, defaultval float64, keys ... interface{}) (val fl
 
 
 func GetBool(o interface{}, defaultval bool,  keys ... interface{}) (val bool) {
-	var oval = GetV(o, nil, keys...);
+	var oval = Get(o, nil, keys...);
 	if oval == nil {
 		return defaultval
 	}
@@ -600,22 +562,22 @@ func GetBool(o interface{}, defaultval bool,  keys ... interface{}) (val bool) {
 }
 
 func GetSlice(o interface{}, keys ... interface{}) (val []interface{}) {
-	var oval = GetV(o, nil, keys...);
+	var oval = Get(o, nil, keys...);
 	return AsSlice(oval, 0);
 }
 
 func GetStringSlice(o interface{}, keys ... interface{}) (val []string) {
-	var oval = GetV(o, nil, keys...);
+	var oval = Get(o, nil, keys...);
 	return AsStringSlice(oval, 0);
 }
 
 func GetMap(o interface{}, createifnil bool, keys ... interface{}) (val map[string]interface{}) {
-	var oval = GetV(o, nil, keys...);
+	var oval = Get(o, nil, keys...);
 	return AsMap(oval, createifnil)
 }
 
 func GetStringMap(o interface{}, createifnil bool, keys ... interface{}) (val map[string]string) {
-	var oval = GetV(o, nil, keys...);
+	var oval = Get(o, nil, keys...);
 	return AsStringMap(oval, createifnil);
 }
 
