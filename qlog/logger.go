@@ -188,12 +188,14 @@ func (o * Logi) LogEx(level int, stackSkip int, v ... interface{}) {
 
 	var vs = util.SliceToString(" ", v...);
 	var line = fmt.Sprintf("%s %s %d %s   %s", levelstr, filename, linenum, funcname, vs);
+	go o.Print(line, stackstr);
+}
 
-
+func (o * Logi) Print(line string, stackstr string) {
 	for _, agent := range o.agents {
 		if (agent != nil) {
 			agent.Println(line);
-			if trace {
+			if len(stackstr) > 0 {
 				agent.Println(stackstr);
 			}
 		}
