@@ -5,6 +5,7 @@ import (
 	"github.com/camsiabor/qcom/qrpc"
 	"github.com/patrickmn/go-cache"
 	"sync"
+	"time"
 )
 
 type SCacheLoader func(scache * SCache, keys ... string) (interface{}, error) ;
@@ -24,6 +25,7 @@ type SCache struct {
 	Path []string;
 	Root * SCache;
 	Parent * SCache;
+	Timeout time.Duration;
 }
 
 

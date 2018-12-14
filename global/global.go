@@ -8,16 +8,20 @@ import (
 )
 
 type Cmd struct {
-	ID           string;
-	Flag         int;
-	Service      string;
-	Function 	 string;
-	Cmd          string;
-	Data         map[string]interface{};
-	Timeout      time.Duration;
-	RetVal       interface{};
-	RetErr       error;
-	RetChan      chan * Cmd;
+	ID       string;
+	Flag     int;
+	SFlag    string;
+	Service  string;
+	Function string;
+	Timeout  time.Duration;
+	Data     map[string]interface{};
+	RetVal   interface{};
+	RetErr   error;
+	RetChan  chan * Cmd;
+}
+
+func (o * Cmd) GetServFunc() string {
+	return o.Service + "." + o.Function;
 }
 
 func (o * Cmd) GetData(key string) interface{} {
@@ -108,9 +112,7 @@ func (g *G) cmdDispatch(cmd * Cmd) {
 func (g *G) cmdHandle(cmd * Cmd, handler CmdHandler) {
 	defer g.cmdRecover();
 	cmd.RetVal, cmd.RetErr = handler.HandleCmd(cmd);
-	if (cmd.RetChan != nil) {
-		cmd.RetChan <- cmd;
-	}
+
 }
 
 func (g *G) CmdHandlerRegister(service string, handler CmdHandler) error {
@@ -121,20 +123,12 @@ func (g *G) CmdHandlerRegister(service string, handler CmdHandler) error {
 	defer g.lock.Unlock();
 	var handlers = g.cmdHandlers[service];
 	if (handlers == nil) {
-		handlers = make([]CmdHandler, 2);
-		g.cmdHandlers[service] = handlers;
-	}
-	var nospace = true;
-	for i, occupy := range handlers {
-		if (occupy == nil) {
-			handlers[i] = handler;
-			nospace = false;
-			break;
-		}
-	}
-	if (nospace) {
+		handlers = make([]CmdHandler, 1);
+		handlers[0] = handler;
+	} else {
 		handlers = append(handlers, handler);
 	}
+	g.cmdHandlers[service] = handlers;
 	return nil;
 }
 
