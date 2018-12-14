@@ -23,7 +23,7 @@ func (o *FileLock) Lock() error {
 	}
 	// try to obtain an exclusive lock - FcntlFlock seems to be the portable *ix way
 	if err := syscall.FcntlFlock(o.file.Fd(), syscall.F_SETLK, &flock); err != nil {
-		return ErrAlreadyRunning
+		return err;
 	}
 
 	return nil
