@@ -29,6 +29,7 @@ type Logi struct {
 	tomorrow   time.Time;
 	writers    [] io.WriteCloser;
 	agents     [] * log.Logger;
+	//logChannel chan * string;
 	lock       sync.RWMutex;
 	Dir        string;
 	Level      int;
@@ -188,7 +189,7 @@ func (o * Logi) LogEx(level int, stackSkip int, v ... interface{}) {
 
 	var vs = util.SliceToString(" ", v...);
 	var line = fmt.Sprintf("%s %s %d %s   %s", levelstr, filename, linenum, funcname, vs);
-	go o.Print(line, stackstr);
+	o.Print(line, stackstr);
 }
 
 func (o * Logi) Print(line string, stackstr string) {
