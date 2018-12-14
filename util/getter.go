@@ -13,7 +13,6 @@ func AsStr(o interface{}, defaultval string) (r string) {
 	if (o == nil) {
 		return defaultval;
 	}
-	fmt.Println(reflect.TypeOf(o));
 	switch o.(type) {
 	case string:
 		return o.(string)
