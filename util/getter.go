@@ -13,13 +13,11 @@ func AsStr(o interface{}, defaultval string) (r string) {
 	if (o == nil) {
 		return defaultval;
 	}
+	fmt.Println(reflect.TypeOf(o));
 	switch o.(type) {
 	case string:
 		return o.(string)
-	case int:
-	case int8:
-	case int16:
-	case int64:
+	case int, int8, int16, int64, uint, uint8, uint16, uint32, uint64:
 		return fmt.Sprintf("%d", o)
 	case float32:
 		var f = o.(float32);
@@ -56,6 +54,7 @@ func AsInt(o interface{}, defaultval int) (r int) {
 	if (o == nil) {
 		return defaultval;
 	}
+
 	switch o.(type) {
 	case int:
 		return o.(int);
@@ -63,6 +62,9 @@ func AsInt(o interface{}, defaultval int) (r int) {
 		return int(o.(int64));
 	case int16:
 		return int(o.(int16))
+	case uint:
+		return int(o.(uint));
+
 	case float64:
 		return int(o.(float64))
 	case float32:
@@ -104,7 +106,11 @@ func AsInt64(o interface{}, defaultval int64) (r int64) {
 	case int:
 		return int64(o.(int));
 	case int16:
-		return int64(o.(int16))
+		return int64(o.(int16));
+	case uint32:
+		return int64(o.(uint32));
+	case uint64:
+		return int64(o.(uint64));
 	case float64:
 		return int64(o.(float64))
 	case float32:
