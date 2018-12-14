@@ -10,21 +10,14 @@ import (
 type Cmd struct {
 	ID           string;
 	Flag         int;
-	Name         string;
-	Type         string;
 	Service      string;
+	Function 	 string;
 	Cmd          string;
-	//SenderName   string;
-	//ReceiverName string;
-	//Sender       interface{};
-	//Receiver     interface{};
 	Data         map[string]interface{};
-	//Timestamp    time.Time;
 	Timeout      time.Duration;
 	RetVal       interface{};
 	RetErr       error;
 	RetChan      chan * Cmd;
-	Callback     func(* Cmd, CmdHandler);
 }
 
 func (o * Cmd) GetData(key string) interface{} {
@@ -42,7 +35,6 @@ func (o * Cmd) SetData(key string, val interface{}) {
 }
 
 type CmdHandler interface {
-	FilterCmd(cmd * Cmd) bool;
 	HandleCmd(cmd * Cmd) (interface{}, error);
 }
 
@@ -58,14 +50,14 @@ type G struct {
 	lock 		sync.RWMutex;
 	chCmdBus    chan * Cmd;
 	data		map[string]interface{};
-	cmdHandlers map[string]CmdHandler;
+	cmdHandlers map[string][]CmdHandler;
 	PanicHandler func(pan interface{});
 	Listener  	net.Listener;
 }
 
 var _instance *G = &G{
 	chCmdBus : make(chan * Cmd, 1024),
-	cmdHandlers : make(map[string]CmdHandler),
+	cmdHandlers : make(map[string][]CmdHandler),
 	data : make(map[string]interface{}),
 }
 
@@ -107,7 +99,9 @@ func (g *G) cmdDispatch(cmd * Cmd) {
 		return;
 	}
 	for _, handler := range handlers {
-		go g.cmdHandle(cmd, handler);
+		if (handler != nil) {
+			go g.cmdHandle(cmd, handler);
+		}
 	}
 }
 
@@ -117,75 +111,90 @@ func (g *G) cmdHandle(cmd * Cmd, handler CmdHandler) {
 	if (cmd.RetChan != nil) {
 		cmd.RetChan <- cmd;
 	}
-	if (cmd.Callback != nil) {
-		cmd.Callback(cmd, handler);
-	}
 }
 
-func (g *G) CmdHandlerRegister(name string, handler CmdHandler) error {
+func (g *G) CmdHandlerRegister(service string, handler CmdHandler) error {
 	if (handler == nil) {
-		return errors.New("handler is null : " + name);
+		return errors.New("handler is null : " + service);
 	}
 	g.lock.Lock();
 	defer g.lock.Unlock();
-	g.cmdHandlers[name] = handler;
+	var handlers = g.cmdHandlers[service];
+	if (handlers == nil) {
+		handlers = make([]CmdHandler, 2);
+		g.cmdHandlers[service] = handlers;
+	}
+	var nospace = true;
+	for i, occupy := range handlers {
+		if (occupy == nil) {
+			handlers[i] = handler;
+			nospace = false;
+			break;
+		}
+	}
+	if (nospace) {
+		handlers = append(handlers, handler);
+	}
 	return nil;
 }
 
-func (g *G) CmdHandlerUnRegister(name string) error {
+func (g *G) CmdHandlerUnRegister(service string) error {
 	g.lock.Lock();
 	defer g.lock.Unlock();
-	delete(g.cmdHandlers, name);
+	delete(g.cmdHandlers, service);
 	return nil;
 }
 
-func (g *G) CmdHandlerGet(name string) (handler CmdHandler, err error) {
+func (g *G) CmdHandlerGet(service string) (handlers []CmdHandler, err error) {
 	g.lock.RLock();
 	defer g.lock.RUnlock();
-	handler = g.cmdHandlers[name];
-	if (handler == nil) {
-		err = errors.New("handler is null : " + name);
+	handlers = g.cmdHandlers[service];
+	if (handlers == nil) {
+		err = errors.New("handlers is null : " + service);
 	}
-	return handler, err;
+	return handlers, err;
 }
+
 
 func (g *G) CmdHandlerFilter(cmd * Cmd) []CmdHandler {
 	g.lock.RLock()
 	defer g.lock.RUnlock();
-	var count = 0;
-	var ilen = len(g.cmdHandlers);
-	if (ilen == 0) {
-		return nil;
-	}
-	var handlers = make([]CmdHandler, ilen);
-	for _, handler := range g.cmdHandlers {
-		if (handler.FilterCmd(cmd)) {
-			handlers[count] = handler;
-			count++;
-		}
-	}
-	return handlers[:count];
+	return g.cmdHandlers[cmd.Service];
 }
 
+
 func (g *G) SendCmd(cmd * Cmd) (interface{}, error){
+
 	g.chCmdBus <- cmd;
 	if (cmd.Timeout < 0) {
 		cmd.Timeout = 365 * 24 * time.Hour;
 	}
-	if (cmd.Timeout > 0) {
+
+	if (cmd.Timeout > 0 || cmd.Timeout < 0) {
 		if (cmd.RetChan == nil) {
-			cmd.RetChan = make(chan * Cmd);
+			cmd.RetChan = make(chan * Cmd, 8);
+			defer close(cmd.RetChan);
 		}
-		var timeout = time.After(cmd.Timeout);
-		if (cmd.Timeout == 0) {
+		if (cmd.Timeout > 0) {
+			var timeout = time.After(cmd.Timeout);
 			select {
 			case rcmd, rok := <- cmd.RetChan:
-				if (!rok) {
+				if (rok) {
+					cmd = rcmd;
+				} else {
 					cmd.RetErr = errors.New("return channel close");
 				}
-				cmd = rcmd;
 			case <-timeout:
 				cmd.RetErr = errors.New("timeout");
+			}
+		} else if (cmd.Timeout < 0) {
+			select {
+			case rcmd, rok := <-cmd.RetChan:
+				if (rok) {
+					cmd = rcmd;
+				} else {
+					cmd.RetErr = errors.New("return channel close");
+				}
 			}
 		}
 	}
