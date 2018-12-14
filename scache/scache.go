@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-type SCacheLoader func(scache * SCache, keys ... string) (interface{}, error) ;
+type SCacheLoader func(scache * SCache, factor int, timeout time.Duration, keys ... string) (interface{}, error) ;
 
 type SCacheManager struct {
 	mutex sync.Mutex;
@@ -83,7 +83,7 @@ func (o * SCacheManager) RGet(arg qrpc.QArg, reply * qrpc.QArg) {
 
 }
 
-func (o * SCache) Load(key string)  (val interface{}, err error){
+func (o * SCache) Load(key string, factor int, timeout time.Duration)  (val interface{}, err error){
 	if (o.Loader == nil) {
 		if (o.Root == nil || o.Root == o) {
 			return o.Get(false, key);
@@ -97,7 +97,7 @@ func (o * SCache) Load(key string)  (val interface{}, err error){
 			}
 			if (actor.Loader != nil) {
 				var actorkeys = append(child.Path, key);
-				val, err = actor.Loader(actor, actorkeys...);
+				val, err = actor.Loader(actor, factor, timeout, actorkeys...);
 				if (err != nil || val != nil) {
 					break;
 				}
@@ -105,7 +105,7 @@ func (o * SCache) Load(key string)  (val interface{}, err error){
 			child = child.Parent;
 		}
 	} else {
-		val, err = o.Loader(o, key);
+		val, err = o.Loader(o, factor, timeout, key);
 	}
 
 	if (val != nil) {
@@ -116,11 +116,15 @@ func (o * SCache) Load(key string)  (val interface{}, err error){
 }
 
 func (o * SCache) Get(load bool, key string) (val interface{}, err error) {
+	return o.GetEx(load, 0, 0, key);
+}
+
+func (o * SCache) GetEx(load bool, factor int, timeout time.Duration, key string) (val interface{}, err error) {
 	o.mutex.RLock();
 	val = o.data[key];
 	o.mutex.RUnlock();
 	if (val == nil && load) {
-		val, err = o.Load(key);
+		val, err = o.Load(key, factor, timeout);
 	}
 	return val, err;
 }
@@ -207,10 +211,14 @@ func (o * SCache) GetSubEx(index int, keys ... string) (* SCache) {
 }
 
 func (o * SCache) GetSubVal(load bool, keys ... string) (val interface{}, err error) {
+	return o.GetSubValEx(load, 0, 0, keys...);
+}
+
+func (o * SCache) GetSubValEx(load bool, factor int, timeout time.Duration, keys ... string) (val interface{}, err error) {
 	var keyslen = len(keys);
 	var sub = o.GetSubEx(1, keys...);
 	var key = keys[keyslen - 1];
-	return sub.Get(load, key);
+	return sub.GetEx(load, factor, timeout, key);
 }
 
 func (o * SCache) SetSubVal(val interface{}, keys ... string) {

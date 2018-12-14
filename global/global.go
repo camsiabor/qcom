@@ -7,41 +7,6 @@ import (
 	"time"
 )
 
-type Cmd struct {
-	ID       string;
-	Flag     int;
-	SFlag    string;
-	Service  string;
-	Function string;
-	Timeout  time.Duration;
-	Data     map[string]interface{};
-	RetVal   interface{};
-	RetErr   error;
-	RetChan  chan * Cmd;
-}
-
-func (o * Cmd) GetServFunc() string {
-	return o.Service + "." + o.Function;
-}
-
-func (o * Cmd) GetData(key string) interface{} {
-	if (o.Data == nil) {
-		return nil;
-	}
-	return o.Data[key];
-}
-
-func (o * Cmd) SetData(key string, val interface{}) {
-	if (o.Data == nil) {
-		o.Data = make(map[string]interface{});
-	}
-	o.Data[key] = val;
-}
-
-type CmdHandler interface {
-	HandleCmd(cmd * Cmd) (interface{}, error);
-}
-
 type G struct {
 	Mode 		string;
 	LogPath     string;
@@ -111,8 +76,16 @@ func (g *G) cmdDispatch(cmd * Cmd) {
 
 func (g *G) cmdHandle(cmd * Cmd, handler CmdHandler) {
 	defer g.cmdRecover();
-	cmd.RetVal, cmd.RetErr = handler.HandleCmd(cmd);
-
+	var reply, handled, err = handler.HandleCmd(cmd);
+	if (handled) {
+		if (reply == nil) {
+			reply = cmd;
+		}
+		if (err != nil) {
+			reply.RetErr = err;
+		}
+		cmd.Reply(reply);
+	}
 }
 
 func (g *G) CmdHandlerRegister(service string, handler CmdHandler) error {
@@ -157,42 +130,15 @@ func (g *G) CmdHandlerFilter(cmd * Cmd) []CmdHandler {
 }
 
 
-func (g *G) SendCmd(cmd * Cmd) (interface{}, error){
-
+func (g *G) SendCmd(cmd * Cmd, timeout time.Duration) (reply * Cmd, err error){
+	if (timeout != 0) {
+		cmd.InitRetChannel(2);
+	}
 	g.chCmdBus <- cmd;
-	if (cmd.Timeout < 0) {
-		cmd.Timeout = 365 * 24 * time.Hour;
+	if (timeout != 0) {
+		reply, err = cmd.Wait(timeout);
 	}
-
-	if (cmd.Timeout > 0 || cmd.Timeout < 0) {
-		if (cmd.RetChan == nil) {
-			cmd.RetChan = make(chan * Cmd, 8);
-			defer close(cmd.RetChan);
-		}
-		if (cmd.Timeout > 0) {
-			var timeout = time.After(cmd.Timeout);
-			select {
-			case rcmd, rok := <- cmd.RetChan:
-				if (rok) {
-					cmd = rcmd;
-				} else {
-					cmd.RetErr = errors.New("return channel close");
-				}
-			case <-timeout:
-				cmd.RetErr = errors.New("timeout");
-			}
-		} else if (cmd.Timeout < 0) {
-			select {
-			case rcmd, rok := <-cmd.RetChan:
-				if (rok) {
-					cmd = rcmd;
-				} else {
-					cmd.RetErr = errors.New("return channel close");
-				}
-			}
-		}
-	}
-	return cmd.RetVal, cmd.RetErr;
+	return reply, err;
 }
 
 func (g *G) GetData(key string) interface{} {
