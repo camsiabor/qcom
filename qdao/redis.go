@@ -369,10 +369,11 @@ func (o *DaoRedis) ScanAsMap(db string, group string, from int, size int, unmars
 
 func (o *DaoRedis) Scan(db string, group string, from int, size int, unmarshal bool, query ... interface{}) (ret []interface{}, cursor int, total int, err error) {
 
-	for k, v := range m {
-
-	}
-	return ret, cursor, len(m), err;
+	//for k, v := range m {
+	//
+	//}
+	//return ret, cursor, len(m), err;
+	return nil, 0, 0, nil;
 }
 
 
