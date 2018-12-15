@@ -27,6 +27,9 @@ type D interface {
 	Gets(db string, group string, ids[] interface{}, unmarshal bool) (rets []interface{}, err error);
 	Query(db string, query string, args []interface{}) (interface{}, error);
 
+	Scan(db string, group string, from int, size int, unmarshal bool, query ... interface{}) (ret []interface{}, cursor int, total int, err error);
+	ScanAsMap(db string, group string, from int, size int, unmarshal bool, query ... interface{}) (ret map[string]interface{}, cursor int, total int, err error);
+
 	Update(db string, group string, id string, val interface{}, override bool, marshal int) (interface{}, error);
 	Updates(db string, group string, ids []interface{}, vals[] interface{}, override bool, marshal int) (interface{}, error);
 

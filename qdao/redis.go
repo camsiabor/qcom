@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/camsiabor/qcom/qref"
+	"github.com/camsiabor/qcom/util"
 	"github.com/gomodule/redigo/redis"
 	"github.com/pkg/errors"
 	"strconv"
@@ -340,6 +341,52 @@ func (o *DaoRedis) Deletes(db string, group string, ids []interface{}) (interfac
 }
 
 
+func (o *DaoRedis) ScanAsMap(db string, group string, from int, size int, unmarshal bool, query ... interface{}) (ret map[string]interface{}, cursor int, total int, err error) {
+	var conn = o.getConn(db);
+	var cmd string;
+	if (len(group) == 0) {
+		cmd = "SCAN";
+	} else {
+		cmd = "HSCAN";
+
+	}
+	if (query == nil) {
+		conn.Send(cmd, from, );
+	} else {
+		conn.Send(cmd, append([]interface{} {from}, query...)...);
+	}
+
+	raw, err := conn.Receive()
+	if (err != nil) {
+		return nil, 0, 0, err;
+	}
+	bulks, err := redis.Values(raw, err);
+	cursor, _ = redis.Int(bulks[0], err)
+	mss, _ := redis.StringMap(bulks[1], err)
+	m := util.AsMap(mss, false);
+	return m, len(m), 0, err;
+}
+
+func (o *DaoRedis) Scan(db string, group string, from int, size int, unmarshal bool, query ... interface{}) (ret []interface{}, cursor int, total int, err error) {
+
+	for k, v := range m {
+
+	}
+	return ret, cursor, len(m), err;
+}
+
+
+func (o *DaoRedis) Script(db string, group string, id string, script string, args []interface{}) (interface{}, error) {
+	var conn = o.getConn(db);
+	var keycount int = 0;
+	if (args != nil) {
+		keycount = len(args);
+	}
+	var rscript = redis.NewScript(keycount, script);
+	return redis.String(rscript.Do(conn, redis.Args{}.AddFlat(args)...));
+}
+
+
 /* ============================ supplement ========================== */
 
 func RHGetMap(rclient redis.Conn, key string, field string) (map[string]interface{}, error) {
@@ -475,14 +522,4 @@ func RParse(cmd string, rawreply interface{}, err error ) (interface{}, error) {
 	}
 
 	return nil, fmt.Errorf("cmd %s not support yet", cmd);
-}
-
-func (o *DaoRedis) Script(db string, group string, id string, script string, args []interface{}) (interface{}, error) {
-	var conn = o.getConn(db);
-	var keycount int = 0;
-	if (args != nil) {
-		keycount = len(args);
-	}
-	var rscript = redis.NewScript(keycount, script);
-	return redis.String(rscript.Do(conn, redis.Args{}.AddFlat(args)...));
 }
