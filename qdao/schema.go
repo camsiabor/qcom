@@ -63,8 +63,33 @@ type DBSchema struct {
 }
 
 type Schema struct {
-	Name string
-	DB   map[string]*DBSchema
+	Name              string
+	DB                map[string]*DBSchema
+	dbGroupCache      map[string]*GroupSchema
+	dbGroupKeyCache   map[string]string
+	dbGroupFieldCache map[string]*FieldSchema
+}
+
+func GetVTypeCode(vtype VType) VTypeCode {
+	switch vtype {
+	case VTYPE_BOOL:
+		return VTYPE_CODE_BOOL
+	case VTYPE_INT:
+		return VTYPE_CODE_INT
+	case VTYPE_TIME:
+		return VTYPE_CODE_TIME
+	case VTYPE_FLOAT:
+		return VTYPE_CODE_FLOAT
+	case VTYPE_ARRAY:
+		return VTYPE_CODE_ARRAY
+	case VTYPE_OBJECT:
+		return VTYPE_CODE_OBJECT
+	case VTYPE_STRING:
+		return VTYPE_CODE_STRING
+	case VTYPE_BINARY:
+		return VTYPE_CODE_BINARY
+	}
+	panic(fmt.Errorf("unsupport vtype %s", vtype))
 }
 
 func (field *FieldSchema) Init(name string, fieldOpts interface{}) {
@@ -160,6 +185,10 @@ func (s *Schema) Init(name string, schemaOptions map[string]interface{}) {
 		s.DB = make(map[string]*DBSchema)
 	}
 
+	s.dbGroupCache = make(map[string]*GroupSchema)
+	s.dbGroupKeyCache = make(map[string]string)
+	s.dbGroupFieldCache = make(map[string]*FieldSchema)
+
 	for dbName, dbOpt := range schemaOptions {
 		if dbOpt == nil {
 			continue
@@ -175,24 +204,52 @@ func (s *Schema) Init(name string, schemaOptions map[string]interface{}) {
 	}
 }
 
-func GetVTypeCode(vtype VType) VTypeCode {
-	switch vtype {
-	case VTYPE_BOOL:
-		return VTYPE_CODE_BOOL
-	case VTYPE_INT:
-		return VTYPE_CODE_INT
-	case VTYPE_TIME:
-		return VTYPE_CODE_TIME
-	case VTYPE_FLOAT:
-		return VTYPE_CODE_FLOAT
-	case VTYPE_ARRAY:
-		return VTYPE_CODE_ARRAY
-	case VTYPE_OBJECT:
-		return VTYPE_CODE_OBJECT
-	case VTYPE_STRING:
-		return VTYPE_CODE_STRING
-	case VTYPE_BINARY:
-		return VTYPE_CODE_BINARY
+func (s *Schema) GetGroup(db string, group string) *GroupSchema {
+	var id = db + "." + group
+	var target = s.dbGroupCache[id]
+	if target != nil {
+		return target
 	}
-	panic(fmt.Errorf("unsupport vtype %s", vtype))
+	var dbschema = s.DB[db]
+	if dbschema == nil {
+		return nil
+	}
+	target = dbschema.Group[group]
+	if target != nil {
+		s.dbGroupCache[id] = target
+	}
+	return target
+}
+
+func (s *Schema) GetField(db string, group string, field string) *FieldSchema {
+	var id = db + "." + group + "." + field
+	var target = s.dbGroupFieldCache[id]
+	if target != nil {
+		return target
+	}
+	var groupschema = s.GetGroup(db, group)
+	if groupschema == nil {
+		return nil
+	}
+	target = groupschema.Field[field]
+	if target != nil {
+		s.dbGroupFieldCache[id] = target
+	}
+	return target
+}
+
+func (s *Schema) GetGroupKey(db string, group string, def string) string {
+	var id = db + "." + group
+	var key, ok = s.dbGroupKeyCache[id]
+	if ok {
+		return key
+	}
+	var groupSchema = s.GetGroup(db, group)
+	if groupSchema == nil || groupSchema.Key == nil {
+		s.dbGroupKeyCache[id] = def
+		return def
+	}
+	key = groupSchema.Key.Name
+	s.dbGroupKeyCache[id] = key
+	return key
 }
