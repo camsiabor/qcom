@@ -643,7 +643,8 @@ func CastComplex(o interface{}, t reflect.Type) interface{} {
 			return o
 		}
 		var olen = oval.Len()
-		var slice = reflect.MakeSlice(oeletype, olen, olen)
+		var slicetype = reflect.SliceOf(teletype)
+		var slice = reflect.MakeSlice(slicetype, olen, olen)
 		for i := 0; i < olen; i++ {
 			var oeleval = oval.Index(i)
 			var sliceele = slice.Index(i)
