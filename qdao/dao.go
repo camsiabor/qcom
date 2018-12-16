@@ -25,7 +25,7 @@ type D interface {
 	UpdateDB(db string, options interface{}, create bool, override bool, opt UOpt) (interface{}, error)
 	UpdateGroup(db string, group string, options interface{}, create bool, override bool, opt UOpt) (interface{}, error)
 
-	Exists(db string, group string, id []string) (int, error)
+	Exists(db string, group string, ids []interface{}) (int, error)
 	ExistDB(db string) (bool, error)
 	ExistGroup(db string, group string) (bool, error)
 
@@ -34,20 +34,20 @@ type D interface {
 
 	Keys(db string, group string, wildcard string, opt QOpt) (keys []string, err error)
 
-	Get(db string, group string, id string, unmarshal int, opt QOpt) (ret interface{}, err error)
+	Get(db string, group string, id interface{}, unmarshal int, opt QOpt) (ret interface{}, err error)
 	Gets(db string, group string, ids []interface{}, unmarshal int, opt QOpt) (rets []interface{}, err error)
 	Query(db string, query string, args []interface{}, opt QOpt) (interface{}, error)
 
 	//Scan(db string, group string, from int, size int, unmarshal bool, opt QOpt, query ...interface{}) (ret []interface{}, cursor int, total int, err error)
 	//ScanAsMap(db string, group string, from int, size int, unmarshal bool, opt QOpt, query ...interface{}) (ret map[string]interface{}, cursor int, total int, err error)
 
-	Update(db string, group string, id string, val interface{}, override bool, marshal int, opt UOpt) (interface{}, error)
+	Update(db string, group string, id interface{}, val interface{}, override bool, marshal int, opt UOpt) (interface{}, error)
 	Updates(db string, group string, ids []interface{}, vals []interface{}, override bool, marshal int, opt UOpt) (interface{}, error)
 
-	Delete(db string, group string, id string, opt DOpt) (interface{}, error)
+	Delete(db string, group string, id interface{}, opt DOpt) (interface{}, error)
 	Deletes(db string, group string, ids []interface{}, opt DOpt) (interface{}, error)
 
-	Script(db string, group string, id string, script string, args []interface{}, opt QOpt) (interface{}, error)
+	Script(db string, group string, id interface{}, script string, args []interface{}, opt QOpt) (interface{}, error)
 }
 
 func (o QOpt) GetFields() []string {
