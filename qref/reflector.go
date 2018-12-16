@@ -22,7 +22,7 @@ func FuncCall(f interface{}, args ...interface{}) []reflect.Value {
 	return fun.Call(in)
 }
 
-func FuncCallByName(myClass interface{}, funcName string, params ...interface{}) (out []reflect.Value, err error) {
+func FuncCallByNameSimple(myClass interface{}, funcName string, params ...interface{}) (out []reflect.Value, err error) {
 	myClassValue := reflect.ValueOf(myClass)
 	funcValue := myClassValue.MethodByName(funcName)
 	if !funcValue.IsValid() {
@@ -32,13 +32,38 @@ func FuncCallByName(myClass interface{}, funcName string, params ...interface{})
 	in := make([]reflect.Value, len(params))
 	for i, param := range params {
 		if param == nil {
-			var paramType = funcType.In(i)
-			in[i] = reflect.New(paramType).Elem()
+			in[i] = reflect.New(funcType.In(i)).Elem()
 		} else {
 			in[i] = reflect.ValueOf(param)
 		}
 	}
+	out = funcValue.Call(in)
+	return out, nil
+}
 
+func FuncCallByName(myClass interface{}, funcName string, params ...interface{}) (out []reflect.Value, err error) {
+	myClassValue := reflect.ValueOf(myClass)
+	funcValue := myClassValue.MethodByName(funcName)
+	if !funcValue.IsValid() {
+		return nil, fmt.Errorf("method not found \"%s\"", funcName)
+	}
+	funcType := funcValue.Type()
+	in := make([]reflect.Value, len(params))
+	for i, param := range params {
+		var funcInType = funcType.In(i)
+		if param != nil {
+			var paramType = reflect.TypeOf(param)
+			if paramType != funcInType {
+				param = util.CastComplex(params[i], funcInType)
+			}
+			if param != nil {
+				in[i] = reflect.ValueOf(param)
+			}
+		}
+		if param == nil {
+			in[i] = reflect.New(funcInType).Elem()
+		}
+	}
 	out = funcValue.Call(in)
 	return out, nil
 }
