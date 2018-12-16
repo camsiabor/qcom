@@ -29,7 +29,7 @@ type SCache struct {
 
 var _scacheManager *Manager
 
-func GetCacheManager() *Manager {
+func GetManager() *Manager {
 	if _scacheManager == nil {
 		_scacheManager = new(Manager)
 		_scacheManager.caches = make(map[string]*SCache)

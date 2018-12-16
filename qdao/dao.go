@@ -25,7 +25,7 @@ type D interface {
 	UpdateDB(db string, options interface{}, create bool, override bool, opt UOpt) (interface{}, error)
 	UpdateGroup(db string, group string, options interface{}, create bool, override bool, opt UOpt) (interface{}, error)
 
-	Exists(db string, group string, ids []interface{}) (int, error)
+	Exists(db string, group string, ids []interface{}) (int64, error)
 	ExistDB(db string) (bool, error)
 	ExistGroup(db string, group string) (bool, error)
 
