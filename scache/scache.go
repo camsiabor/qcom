@@ -15,6 +15,7 @@ type Manager struct {
 }
 
 type SCache struct {
+	Name    string
 	mutex   sync.RWMutex
 	data    map[string]interface{}
 	Initer  Loader
@@ -37,8 +38,16 @@ func GetManager() *Manager {
 	return _scacheManager
 }
 
-func NewSCache(root *SCache, parent *SCache, path ...string) *SCache {
+func NewSCache(name string, root *SCache, parent *SCache, path ...string) *SCache {
+	if len(name) == 0 {
+		if path != nil {
+			for i := 0; i < len(path); i++ {
+				name = name + path[i] + "."
+			}
+		}
+	}
 	var scache = &SCache{
+		Name:   name,
 		Path:   path,
 		Root:   root,
 		Parent: parent,
@@ -60,7 +69,7 @@ func (o *Manager) Get(name string) *SCache {
 		defer o.mutex.Unlock()
 		c = o.caches[name]
 		if c == nil {
-			c = NewSCache(nil, nil)
+			c = NewSCache(name, nil, nil)
 			o.caches[name] = c
 		}
 	}
@@ -182,7 +191,7 @@ func (o *SCache) GetSubEx(index int, keys ...string) *SCache {
 			if sub == nil {
 				var keylen_minus_index = len(keys) - index
 				var path = keys[:keylen_minus_index]
-				sub = NewSCache(o.Root, o, path...)
+				sub = NewSCache("", o.Root, o, path...)
 				current.data[key] = sub
 			}
 			current.mutex.Unlock()
