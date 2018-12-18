@@ -22,6 +22,7 @@ type SCache struct {
 	Loader  Loader
 	Db      string
 	Dao     string
+	Group   string
 	Path    []string
 	Root    *SCache
 	Parent  *SCache

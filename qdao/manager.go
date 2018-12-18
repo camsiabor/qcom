@@ -28,7 +28,7 @@ var _daoManagerInst *DaoManager = &DaoManager{
 	channelHeartbeat: make(chan string),
 }
 
-func GetDaoManager() *DaoManager {
+func GetManager() *DaoManager {
 	return _daoManagerInst
 }
 
@@ -79,6 +79,11 @@ func (o *DaoManager) Init(producer DaoProducer, schemaOpts map[string]interface{
 }
 
 func (o *DaoManager) InitDao(name string, options map[string]interface{}) (D, error) {
+
+	var active = util.GetBool(options, true, "active")
+	if !active {
+		return nil, nil
+	}
 
 	var dbtype = util.GetStr(options, "", "type")
 	if len(dbtype) <= 0 {
