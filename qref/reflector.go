@@ -9,6 +9,10 @@ import (
 	"strings"
 )
 
+type ReflectDelegate interface {
+	Delegate() interface{}
+}
+
 func FuncCall(f interface{}, args ...interface{}) []reflect.Value {
 	fun := reflect.ValueOf(f)
 	in := make([]reflect.Value, len(args))
@@ -161,4 +165,73 @@ func MarshalLazy(v interface{}) (string, error) {
 	}
 	return util.AsStr(v, ""), nil
 
+}
+
+type IterateMapSliceCallback func(val reflect.Value, pval reflect.Value) (err error)
+
+func IterateMapSlice(in reflect.Value, doclone bool, callback IterateMapSliceCallback) (out reflect.Value, err error) {
+	if !in.IsValid() {
+		return in, err
+	}
+
+	var t = in.Type()
+	var kind = t.Kind()
+	var mirrorv = in
+	var retv reflect.Value
+	switch kind {
+	case reflect.Map:
+		if doclone {
+			mirrorv = reflect.MakeMapWithSize(t, in.Len())
+		}
+		var keys = in.MapKeys()
+		for i, n := 0, len(keys); i < n; i++ {
+			var key = keys[i]
+			var one = in.MapIndex(key)
+			retv, err = IterateMapSlice(one, doclone, callback)
+			if err != nil {
+				return mirrorv, err
+			}
+			mirrorv.SetMapIndex(key, retv)
+		}
+	case reflect.Slice, reflect.Array:
+		if doclone {
+			mirrorv = reflect.MakeSlice(t, in.Len(), in.Cap())
+		}
+		var count = in.Len()
+		for i := 0; i < count; i++ {
+			var one = in.Index(i)
+			retv, err = IterateMapSlice(one, doclone, callback)
+			if err != nil {
+				return mirrorv, err
+			}
+			mirrorv.Index(i).Set(retv)
+		}
+	case reflect.Ptr, reflect.Interface:
+		var ptrto = in.Elem()
+		switch ptrto.Kind() {
+		case reflect.Struct, reflect.Chan, reflect.UnsafePointer, reflect.Func:
+			if callback == nil {
+				mirrorv = reflect.Zero(t)
+			} else {
+				if doclone {
+					mirrorv = reflect.New(t)
+				}
+				err = callback(ptrto, mirrorv)
+				mirrorv = mirrorv.Elem()
+			}
+		default:
+			mirrorv, err = IterateMapSlice(ptrto, doclone, callback)
+		}
+	case reflect.Struct, reflect.Chan, reflect.UnsafePointer, reflect.Func:
+		if callback == nil {
+			mirrorv = reflect.Zero(t)
+		} else {
+			mirrorv = reflect.New(t)
+			err = callback(in, mirrorv)
+			mirrorv = mirrorv.Elem()
+		}
+	}
+	//fmt.Printf("in %v = %v\n", in.Type(), in)
+	//fmt.Printf("mirrov %v = %v\n\n", mirrorv.Type(), mirrorv)
+	return mirrorv, err
 }
