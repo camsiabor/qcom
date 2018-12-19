@@ -225,26 +225,16 @@ func (o *SCache) GetSubValEx(load bool, factor int, timeout time.Duration, keys 
 }
 
 // keys_and_ids split by len == 0 string
-func (o *SCache) ListSubValEx(load bool, factor int, timeout time.Duration, keys_and_ids ...string) (val []interface{}, err error) {
-	var isplit = -1
-	var keys_and_ids_len = len(keys_and_ids)
-	for i := 0; i < keys_and_ids_len; i++ {
-		if len(keys_and_ids[i]) == 0 {
-			isplit = i
-			break
-		}
-	}
-	var path = keys_and_ids[0:isplit]
-	var ids = keys_and_ids[isplit+1:]
+func (o *SCache) ListSubValEx(load bool, factor int, timeout time.Duration, path []string, keys []string) (val []interface{}, err error) {
 	var sub = o.GetSubEx(0, path...)
 	if sub == nil {
 		return nil, fmt.Errorf("sub not found by path : %v", path)
 	}
-	return sub.ListEx(load, factor, timeout, ids...)
+	return sub.ListEx(load, factor, timeout, keys...)
 }
 
-func (o *SCache) ListSubVal(load bool, factor int, timeout time.Duration, keys_and_ids ...string) (val []interface{}, err error) {
-	return o.ListSubValEx(load, 0, 0, keys_and_ids...)
+func (o *SCache) ListSubVal(load bool, path []string, keys []string) (val []interface{}, err error) {
+	return o.ListSubValEx(load, 0, 0, path, keys)
 }
 
 func (o *SCache) SetSubVal(val interface{}, keys ...string) {

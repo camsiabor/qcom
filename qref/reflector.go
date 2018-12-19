@@ -168,6 +168,27 @@ func MarshalLazy(v interface{}) (string, error) {
 }
 
 type IterateMapSliceCallback func(val reflect.Value, pval reflect.Value) (err error)
+type SuppressComplexCallback func(v reflect.Value, container reflect.Value, key reflect.Value) (bool, error)
+
+func SuppressComplex(v reflect.Value, container reflect.Value, key reflect.Value, callback SuppressComplexCallback) (bool, error) {
+	var err error
+	var iscomplex = false
+	switch v.Kind() {
+	case reflect.Ptr, reflect.Interface, reflect.Struct, reflect.Chan, reflect.UnsafePointer, reflect.Func:
+		iscomplex = true
+	}
+	if callback == nil {
+		switch container.Kind() {
+		case reflect.Map:
+			container.SetMapIndex(key, reflect.Zero(v.Type()))
+		case reflect.Slice, reflect.Array:
+			container.Index(int(key.Int())).Set(reflect.Zero(v.Type()))
+		}
+	} else {
+		return callback(v, container, key)
+	}
+	return iscomplex, err
+}
 
 func IterateMapSlice(in reflect.Value, doclone bool, callback IterateMapSliceCallback) (out reflect.Value, err error) {
 	if !in.IsValid() {
