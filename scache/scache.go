@@ -135,10 +135,10 @@ func (o *SCache) GetEx(load bool, factor int, timeout time.Duration, key string)
 }
 
 func (o *SCache) List(load bool, keys ...string) (val []interface{}, err error) {
-	return o.ListEx(load, 0, 0, keys...)
+	return o.ListEx(load, 0, 0, keys)
 }
 
-func (o *SCache) ListEx(load bool, factor int, timeout time.Duration, keys ...string) (vals []interface{}, err error) {
+func (o *SCache) ListEx(load bool, factor int, timeout time.Duration, keys []string) (vals []interface{}, err error) {
 	var valsindex = 0
 	var keylen = len(keys)
 	vals = make([]interface{}, keylen)
@@ -180,10 +180,10 @@ func (o *SCache) Sets(vals []interface{}, keys []string) *SCache {
 }
 
 func (o *SCache) GetSub(keys ...string) *SCache {
-	return o.GetSubEx(0, keys...)
+	return o.GetSubEx(0, keys)
 }
 
-func (o *SCache) GetSubEx(index int, keys ...string) *SCache {
+func (o *SCache) GetSubEx(index int, keys []string) *SCache {
 	var current = o
 	var keyslen = len(keys) - 1 - index
 	for i, key := range keys {
@@ -211,12 +211,12 @@ func (o *SCache) GetSubEx(index int, keys ...string) *SCache {
 }
 
 func (o *SCache) GetSubVal(load bool, keys ...string) (val interface{}, err error) {
-	return o.GetSubValEx(load, 0, 0, keys...)
+	return o.GetSubValEx(load, 0, 0, keys)
 }
 
-func (o *SCache) GetSubValEx(load bool, factor int, timeout time.Duration, keys ...string) (val interface{}, err error) {
+func (o *SCache) GetSubValEx(load bool, factor int, timeout time.Duration, keys []string) (val interface{}, err error) {
 	var keyslen = len(keys)
-	var sub = o.GetSubEx(1, keys...)
+	var sub = o.GetSubEx(1, keys)
 	if sub == nil {
 		return nil, fmt.Errorf("sub not found by path : %v", keys[:keyslen-1])
 	}
@@ -226,11 +226,11 @@ func (o *SCache) GetSubValEx(load bool, factor int, timeout time.Duration, keys 
 
 // keys_and_ids split by len == 0 string
 func (o *SCache) ListSubValEx(load bool, factor int, timeout time.Duration, path []string, keys []string) (val []interface{}, err error) {
-	var sub = o.GetSubEx(0, path...)
+	var sub = o.GetSubEx(0, path)
 	if sub == nil {
 		return nil, fmt.Errorf("sub not found by path : %v", path)
 	}
-	return sub.ListEx(load, factor, timeout, keys...)
+	return sub.ListEx(load, factor, timeout, keys)
 }
 
 func (o *SCache) ListSubVal(load bool, path []string, keys []string) (val []interface{}, err error) {
@@ -239,13 +239,13 @@ func (o *SCache) ListSubVal(load bool, path []string, keys []string) (val []inte
 
 func (o *SCache) SetSubVal(val interface{}, keys ...string) {
 	var keyslen = len(keys)
-	var sub = o.GetSubEx(1, keys...)
+	var sub = o.GetSubEx(1, keys)
 	var key = keys[keyslen-1]
 	sub.Set(val, key)
 }
 
 func (o *SCache) SetSubVals(vals []interface{}, keys []string, pathes ...string) {
-	var sub = o.GetSubEx(1, pathes...)
+	var sub = o.GetSubEx(1, pathes)
 	sub.Sets(vals, keys)
 }
 
