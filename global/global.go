@@ -153,5 +153,11 @@ func (g *G) SetData(key string, val interface{}) *G {
 }
 
 func (g *G) Data() map[string]interface{} {
-	return g.data
+	var m = make(map[string]interface{})
+	g.lock.RLock()
+	defer g.lock.RUnlock()
+	for k, v := range g.data {
+		m[k] = v
+	}
+	return m
 }
