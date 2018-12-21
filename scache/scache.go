@@ -7,7 +7,11 @@ import (
 	"time"
 )
 
-type Loader func(scache *SCache, factor int, timeout time.Duration, keys ...string) (interface{}, error)
+const FLAG_UPDATE_SET = 0
+const FLAG_UPDATE_DELETE = 1
+
+type Loader func(cache *SCache, factor int, timeout time.Duration, keys ...string) (interface{}, error)
+type Updater func(cache *SCache, flag int, val interface{}, keys ...string) error
 
 type Manager struct {
 	mutex  sync.Mutex
@@ -16,17 +20,19 @@ type Manager struct {
 
 type SCache struct {
 	Name    string
-	mutex   sync.RWMutex
-	data    map[string]interface{}
-	Initer  Loader
-	Loader  Loader
 	Db      string
 	Dao     string
 	Group   string
-	Path    []string
-	Root    *SCache
-	Parent  *SCache
+	Twin    *SCache
+	path    []string
+	root    *SCache
+	parent  *SCache
+	initer  Loader
+	Loader  Loader
+	Updater Updater
 	Timeout time.Duration
+	mutex   sync.RWMutex
+	data    map[string]interface{}
 }
 
 var _scacheManager *Manager
@@ -49,13 +55,13 @@ func NewSCache(name string, root *SCache, parent *SCache, path ...string) *SCach
 	}
 	var scache = &SCache{
 		Name:   name,
-		Path:   path,
-		Root:   root,
-		Parent: parent,
+		path:   path,
+		root:   root,
+		parent: parent,
 		data:   make(map[string]interface{}),
 	}
 	if root == nil {
-		scache.Root = scache
+		scache.root = scache
 	}
 	return scache
 }
@@ -90,24 +96,22 @@ func (o *Manager) RGet(arg qrpc.QArg, reply *qrpc.QArg) {
 
 func (o *SCache) Load(key string, factor int, timeout time.Duration) (val interface{}, err error) {
 	if o.Loader == nil {
-		if o.Root == nil || o.Root == o {
+		if o.root == nil || o.root == o {
 			return o.Get(false, key)
 		}
 		var actor = o
 		var child = o
 		for {
-			actor = actor.Parent
+			actor = actor.parent
 			if actor == nil {
 				break
 			}
 			if actor.Loader != nil {
-				var actorkeys = append(child.Path, key)
+				var actorkeys = append(child.path, key)
 				val, err = actor.Loader(actor, factor, timeout, actorkeys...)
-				if err != nil || val != nil {
-					break
-				}
+				break
 			}
-			child = child.Parent
+			child = child.parent
 		}
 	} else {
 		val, err = o.Loader(o, factor, timeout, key)
@@ -156,27 +160,59 @@ func (o *SCache) ListEx(load bool, factor int, timeout time.Duration, keys []str
 	return vals[:valsindex], err
 }
 
-func (o *SCache) Set(val interface{}, key string) *SCache {
+func (o *SCache) callUdater(opt int, val interface{}, key string) error {
+	if o.Updater != nil {
+		return o.Updater(o, opt, val, key)
+	}
+	var actor = o
+	var child = o
+	for {
+		actor = actor.parent
+		if actor == nil {
+			break
+		}
+		if actor.Updater != nil {
+			var actorkeys = append(child.path, key)
+			return actor.Updater(actor, opt, val, actorkeys...)
+		}
+		child = child.parent
+	}
+	return nil
+}
+
+func (o *SCache) Set(val interface{}, key string) error {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 	o.data[key] = val
-	return o
+	return o.callUdater(FLAG_UPDATE_SET, val, key)
 }
 
-func (o *SCache) Sets(vals []interface{}, keys []string) *SCache {
+func (o *SCache) Sets(vals []interface{}, keys []string) error {
 	var vallen = len(vals)
 	var keylen = len(keys)
 	if vallen != keylen {
 		panic(fmt.Sprintf("vals len != keys len %d / %d", vallen, keylen))
 	}
+	var err error
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 	for i := 0; i < vallen; i++ {
 		var key = keys[i]
 		var val = vals[i]
 		o.data[key] = val
+		if err = o.callUdater(FLAG_UPDATE_SET, val, key); err != nil {
+			return err
+		}
 	}
-	return o
+	return nil
+}
+
+func (o *SCache) Delete(key string) error {
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+	delete(o.data, key)
+	o.callUdater(FLAG_UPDATE_DELETE, nil, key)
+	return nil
 }
 
 func (o *SCache) GetSub(keys ...string) *SCache {
@@ -196,7 +232,7 @@ func (o *SCache) GetSubEx(index int, keys []string) *SCache {
 			if sub == nil {
 				var keylen_minus_index = len(keys) - index
 				var path = keys[:keylen_minus_index]
-				sub = NewSCache("", o.Root, o, path...)
+				sub = NewSCache("", o.root, o, path...)
 				current.data[key] = sub
 			}
 			current.mutex.Unlock()
