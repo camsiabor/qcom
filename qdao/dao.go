@@ -43,6 +43,7 @@ type D interface {
 
 	Update(db string, group string, id interface{}, val interface{}, override bool, marshal int, opt UOpt) (interface{}, error)
 	Updates(db string, group string, ids []interface{}, vals []interface{}, override bool, marshal int, opt UOpt) (interface{}, error)
+	UpdateBatch(db string, groups []string, ids []interface{}, vals []interface{}, override bool, marshal int, opt UOpt) (interface{}, error)
 
 	Delete(db string, group string, id interface{}, opt DOpt) (interface{}, error)
 	Deletes(db string, group string, ids []interface{}, opt DOpt) (interface{}, error)
