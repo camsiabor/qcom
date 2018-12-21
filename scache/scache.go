@@ -7,8 +7,10 @@ import (
 	"time"
 )
 
-const FLAG_UPDATE_SET = 0
-const FLAG_UPDATE_DELETE = 1
+const FLAG_UPDATE_SET = 0x1
+const FLAG_UPDATE_DELETE = 0x2
+const FLAG_UPDATE_ASPECT_BEFORE = 0x1000
+const FLAG_UPDATE_ASPECT_AFTER = 0x2000
 
 type Loader func(cache *SCache, factor int, timeout time.Duration, keys ...string) (interface{}, error)
 type Updater func(cache *SCache, flag int, val interface{}, keys ...string) error
@@ -19,20 +21,21 @@ type Manager struct {
 }
 
 type SCache struct {
-	Name    string
-	Db      string
-	Dao     string
-	Group   string
-	Twin    *SCache
-	path    []string
-	root    *SCache
-	parent  *SCache
-	initer  Loader
-	Loader  Loader
-	Updater Updater
-	Timeout time.Duration
-	mutex   sync.RWMutex
-	data    map[string]interface{}
+	Name             string
+	Db               string
+	Dao              string
+	Group            string
+	Twin             *SCache
+	path             []string
+	root             *SCache
+	parent           *SCache
+	initer           Loader
+	Loader           Loader
+	Updater          Updater
+	UseParentUpdater bool
+	Timeout          time.Duration
+	mutex            sync.RWMutex
+	data             map[string]interface{}
 }
 
 var _scacheManager *Manager
@@ -138,6 +141,18 @@ func (o *SCache) GetEx(load bool, factor int, timeout time.Duration, key string)
 	return val, err
 }
 
+func (o *SCache) GetWithoutLock(load bool, key string) (val interface{}, err error) {
+	return o.GetWithoutLockEx(load, 0, 0, key)
+}
+
+func (o *SCache) GetWithoutLockEx(load bool, factor int, timeout time.Duration, key string) (val interface{}, err error) {
+	val = o.data[key]
+	if val == nil && load {
+		val, err = o.Load(key, factor, timeout)
+	}
+	return val, err
+}
+
 func (o *SCache) List(load bool, keys ...string) (val []interface{}, err error) {
 	return o.ListEx(load, 0, 0, keys)
 }
@@ -160,10 +175,16 @@ func (o *SCache) ListEx(load bool, factor int, timeout time.Duration, keys []str
 	return vals[:valsindex], err
 }
 
-func (o *SCache) callUdater(opt int, val interface{}, key string) error {
+func (o *SCache) callUpdater(opt int, val interface{}, key string) error {
+
 	if o.Updater != nil {
 		return o.Updater(o, opt, val, key)
 	}
+
+	if !o.UseParentUpdater {
+		return nil
+	}
+
 	var actor = o
 	var child = o
 	for {
@@ -181,10 +202,15 @@ func (o *SCache) callUdater(opt int, val interface{}, key string) error {
 }
 
 func (o *SCache) Set(val interface{}, key string) error {
+	if err := o.callUpdater(FLAG_UPDATE_SET|FLAG_UPDATE_ASPECT_BEFORE, val, key); err != nil {
+		return err
+	}
+
 	o.mutex.Lock()
-	defer o.mutex.Unlock()
 	o.data[key] = val
-	return o.callUdater(FLAG_UPDATE_SET, val, key)
+	o.mutex.Unlock()
+
+	return o.callUpdater(FLAG_UPDATE_SET|FLAG_UPDATE_ASPECT_AFTER, val, key)
 }
 
 func (o *SCache) Sets(vals []interface{}, keys []string) error {
@@ -194,24 +220,46 @@ func (o *SCache) Sets(vals []interface{}, keys []string) error {
 		panic(fmt.Sprintf("vals len != keys len %d / %d", vallen, keylen))
 	}
 	var err error
+
+	if o.Updater != nil || o.UseParentUpdater {
+		for i := 0; i < vallen; i++ {
+			var key = keys[i]
+			var val = vals[i]
+			err = o.callUpdater(FLAG_UPDATE_SET|FLAG_UPDATE_ASPECT_BEFORE, val, key)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	o.mutex.Lock()
-	defer o.mutex.Unlock()
 	for i := 0; i < vallen; i++ {
 		var key = keys[i]
 		var val = vals[i]
 		o.data[key] = val
-		if err = o.callUdater(FLAG_UPDATE_SET, val, key); err != nil {
-			return err
+	}
+	o.mutex.Unlock()
+
+	if o.Updater != nil || o.UseParentUpdater {
+		for i := 0; i < vallen; i++ {
+			var key = keys[i]
+			var val = vals[i]
+			err = o.callUpdater(FLAG_UPDATE_SET|FLAG_UPDATE_ASPECT_AFTER, val, key)
+			if err != nil {
+				return err
+			}
 		}
 	}
+
 	return nil
 }
 
 func (o *SCache) Delete(key string) error {
+	o.callUpdater(FLAG_UPDATE_DELETE|FLAG_UPDATE_ASPECT_BEFORE, nil, key)
 	o.mutex.Lock()
-	defer o.mutex.Unlock()
 	delete(o.data, key)
-	o.callUdater(FLAG_UPDATE_DELETE, nil, key)
+	o.mutex.Unlock()
+	o.callUpdater(FLAG_UPDATE_DELETE|FLAG_UPDATE_ASPECT_AFTER, nil, key)
 	return nil
 }
 
