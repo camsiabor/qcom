@@ -175,9 +175,13 @@ func (o *SCache) ListEx(load bool, factor int, timeout time.Duration, keys []str
 	return vals[:valsindex], err
 }
 
-func (o *SCache) ListKVEx(load bool, factor int, timeout time.Duration, keys []string) (val map[string]interface{}, err error) {
+func (o *SCache) ListKV(load bool, keys []string) (kv map[string]interface{}, err error) {
+	return o.ListKVEx(load, 0, 0, keys)
+}
+
+func (o *SCache) ListKVEx(load bool, factor int, timeout time.Duration, keys []string) (kv map[string]interface{}, err error) {
 	var keylen = len(keys)
-	val = make(map[string]interface{}, keylen)
+	kv = make(map[string]interface{}, keylen)
 	for i := 0; i < keylen; i++ {
 		var key = keys[i]
 		val, err := o.GetEx(load, factor, timeout, key)
@@ -185,11 +189,10 @@ func (o *SCache) ListKVEx(load bool, factor int, timeout time.Duration, keys []s
 			return nil, err
 		}
 		if val != nil {
-			vals[valsindex] = val
-			valsindex = valsindex + 1
+			kv[key] = val
 		}
 	}
-	return val, err
+	return kv, err
 }
 
 func (o *SCache) callUpdater(opt int, val interface{}, key string) error {
