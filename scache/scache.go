@@ -175,6 +175,23 @@ func (o *SCache) ListEx(load bool, factor int, timeout time.Duration, keys []str
 	return vals[:valsindex], err
 }
 
+func (o *SCache) ListKVEx(load bool, factor int, timeout time.Duration, keys []string) (val map[string]interface{}, err error) {
+	var keylen = len(keys)
+	val = make(map[string]interface{}, keylen)
+	for i := 0; i < keylen; i++ {
+		var key = keys[i]
+		val, err := o.GetEx(load, factor, timeout, key)
+		if err != nil {
+			return nil, err
+		}
+		if val != nil {
+			vals[valsindex] = val
+			valsindex = valsindex + 1
+		}
+	}
+	return val, err
+}
+
 func (o *SCache) callUpdater(opt int, val interface{}, key string) error {
 
 	if o.Updater != nil {
@@ -334,9 +351,9 @@ func (o *SCache) SetSubVals(vals []interface{}, keys []string, pathes ...string)
 }
 
 func (o *SCache) Keys() ([]string, error) {
-	var keys = make([]string, len(o.data))
 	o.mutex.RLock()
 	defer o.mutex.RUnlock()
+	var keys = make([]string, len(o.data))
 	var i = 0
 	for key := range o.data {
 		keys[i] = key
