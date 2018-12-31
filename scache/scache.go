@@ -127,6 +127,13 @@ func (o *SCache) Load(key string, factor int, timeout time.Duration) (val interf
 	return val, err
 }
 
+func (o *SCache) Exist(key string) (val interface{}, exist bool) {
+	o.mutex.RLock()
+	val, exist = o.data[key]
+	o.mutex.RUnlock()
+	return val, exist
+}
+
 func (o *SCache) Get(load bool, key string) (val interface{}, err error) {
 	return o.GetEx(load, 0, 0, key)
 }
