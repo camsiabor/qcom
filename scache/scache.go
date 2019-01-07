@@ -409,3 +409,7 @@ func (o *SCache) GetAll() (retm map[string]interface{}, err error) {
 	}
 	return retm, err
 }
+
+func rw() {
+
+}
