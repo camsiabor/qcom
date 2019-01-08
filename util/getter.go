@@ -941,3 +941,21 @@ func MapMerge(des interface{}, src interface{}, override bool) interface{} {
 	}
 	return des
 }
+
+func MapCloneShallow(src map[string]interface{}) map[string]interface{} {
+	var n = len(src)
+	var r = make(map[string]interface{}, n)
+	for k, v := range src {
+		r[k] = v
+	}
+	return r
+}
+
+func SliceCloneShallow(src []interface{}) []interface{} {
+	var n = len(src)
+	var r = make([]interface{}, n)
+	for i, item := range src {
+		r[i] = item
+	}
+	return r
+}
