@@ -3,6 +3,7 @@ package scache
 import (
 	"fmt"
 	"github.com/camsiabor/qcom/qrpc"
+	"github.com/camsiabor/qcom/util"
 	"sync"
 	"time"
 )
@@ -12,30 +13,41 @@ const FLAG_UPDATE_DELETE = 0x2
 const FLAG_UPDATE_ASPECT_BEFORE = 0x1000
 const FLAG_UPDATE_ASPECT_AFTER = 0x2000
 
-type Loader func(cache *SCache, factor int, timeout time.Duration, keys ...string) (interface{}, error)
-type Updater func(cache *SCache, flag int, val interface{}, keys ...string) error
+type Loader func(cache *SCache, factor int, timeout time.Duration, keys ...interface{}) (interface{}, error)
+type Updater func(cache *SCache, flag int, val interface{}, keys ...interface{}) error
 
 type Manager struct {
 	mutex  sync.Mutex
 	caches map[string]*SCache
 }
 
+type SCacheType int
+
+const (
+	CacheMap SCacheType = 0
+	CacheArray
+)
+
 type SCache struct {
-	Name             string
-	Db               string
-	Dao              string
-	Group            string
-	Twin             *SCache
-	path             []string
-	root             *SCache
-	parent           *SCache
-	initer           Loader
+	Type   SCacheType
+	Name   string
+	Db     string
+	Dao    string
+	Group  string
+	Twin   *SCache
+	path   []interface{}
+	root   *SCache
+	parent *SCache
+
+	mutex sync.RWMutex
+	data  map[string]interface{}
+	array []interface{}
+
+	ArrayLimit       int
 	Loader           Loader
 	Updater          Updater
 	UseParentUpdater bool
 	Timeout          time.Duration
-	mutex            sync.RWMutex
-	data             map[string]interface{}
 }
 
 var _scacheManager *Manager
@@ -48,11 +60,12 @@ func GetManager() *Manager {
 	return _scacheManager
 }
 
-func NewSCache(name string, root *SCache, parent *SCache, path ...string) *SCache {
+func NewSCache(name string, cacheType SCacheType, root *SCache, parent *SCache, path ...interface{}) *SCache {
 	if len(name) == 0 {
 		if path != nil {
 			for i := 0; i < len(path); i++ {
-				name = name + path[i] + "."
+				var spath = util.AsStr(path[i], "")
+				name = name + spath + "."
 			}
 		}
 	}
@@ -70,6 +83,10 @@ func NewSCache(name string, root *SCache, parent *SCache, path ...string) *SCach
 }
 
 func (o *Manager) Get(name string) *SCache {
+	return o.GetEx(name, CacheMap)
+}
+
+func (o *Manager) GetEx(name string, cacheType SCacheType) *SCache {
 	if len(name) == 0 {
 		return nil
 	}
@@ -79,7 +96,7 @@ func (o *Manager) Get(name string) *SCache {
 		defer o.mutex.Unlock()
 		c = o.caches[name]
 		if c == nil {
-			c = NewSCache(name, nil, nil)
+			c = NewSCache(name, cacheType, nil, nil)
 			o.caches[name] = c
 		}
 	}
@@ -97,7 +114,7 @@ func (o *Manager) RGet(arg qrpc.QArg, reply *qrpc.QArg) {
 
 }
 
-func (o *SCache) Load(key string, factor int, timeout time.Duration) (val interface{}, err error) {
+func (o *SCache) Load(key interface{}, factor int, timeout time.Duration) (val interface{}, err error) {
 	if o.Loader == nil {
 		if o.root == nil || o.root == o {
 			return o.Get(false, key)
@@ -134,26 +151,32 @@ func (o *SCache) Exist(key string) (val interface{}, exist bool) {
 	return val, exist
 }
 
-func (o *SCache) Get(load bool, key string) (val interface{}, err error) {
-	return o.GetEx(load, 0, 0, key)
-}
-
-func (o *SCache) GetEx(load bool, factor int, timeout time.Duration, key string) (val interface{}, err error) {
-	o.mutex.RLock()
-	val = o.data[key]
-	o.mutex.RUnlock()
-	if val == nil && load {
-		val, err = o.Load(key, factor, timeout)
+func (o *SCache) GetI(key int) (val interface{}, err error) {
+	if o.array == nil || key >= o.ArrayLimit {
+		return nil, nil
 	}
-	return val, err
+	return o.array[key], nil
 }
 
-func (o *SCache) GetWithoutLock(load bool, key string) (val interface{}, err error) {
-	return o.GetWithoutLockEx(load, 0, 0, key)
+func (o *SCache) Get(load bool, key interface{}) (val interface{}, err error) {
+	return o.GetEx(load, 0, 0, true, key)
 }
 
-func (o *SCache) GetWithoutLockEx(load bool, factor int, timeout time.Duration, key string) (val interface{}, err error) {
-	val = o.data[key]
+func (o *SCache) GetEx(load bool, factor int, timeout time.Duration, lock bool, key interface{}) (val interface{}, err error) {
+
+	var ikey, ok = key.(int)
+	if ok {
+		val, err = o.GetI(ikey)
+	} else {
+		var skey = util.AsStr(key, "")
+		if lock {
+			o.mutex.RLock()
+		}
+		val = o.data[skey]
+		if lock {
+			o.mutex.RUnlock()
+		}
+	}
 	if val == nil && load {
 		val, err = o.Load(key, factor, timeout)
 	}
@@ -170,7 +193,7 @@ func (o *SCache) ListEx(load bool, factor int, timeout time.Duration, keys []str
 	vals = make([]interface{}, keylen)
 	for i := 0; i < keylen; i++ {
 		var key = keys[i]
-		val, err := o.GetEx(load, factor, timeout, key)
+		val, err := o.GetEx(load, factor, timeout, true, key)
 		if err != nil {
 			return nil, err
 		}
@@ -191,7 +214,7 @@ func (o *SCache) ListKVEx(load bool, factor int, timeout time.Duration, keys []s
 	kv = make(map[string]interface{}, keylen)
 	for i := 0; i < keylen; i++ {
 		var key = keys[i]
-		val, err := o.GetEx(load, factor, timeout, key)
+		val, err := o.GetEx(load, factor, timeout, true, key)
 		if err != nil {
 			return nil, err
 		}
@@ -202,7 +225,7 @@ func (o *SCache) ListKVEx(load bool, factor int, timeout time.Duration, keys []s
 	return kv, err
 }
 
-func (o *SCache) callUpdater(opt int, val interface{}, key string) error {
+func (o *SCache) callUpdater(opt int, val interface{}, key interface{}) error {
 
 	if o.Updater != nil {
 		return o.Updater(o, opt, val, key)
@@ -228,15 +251,44 @@ func (o *SCache) callUpdater(opt int, val interface{}, key string) error {
 	return nil
 }
 
-func (o *SCache) Set(val interface{}, key string) error {
+func (o *SCache) SetI(val interface{}, key int, lock bool) {
+	if o.array == nil || key >= o.ArrayLimit {
+		if lock {
+			o.mutex.Lock()
+			defer o.mutex.Unlock()
+		}
+		if o.array == nil || key >= o.ArrayLimit {
+			if o.ArrayLimit <= 8 {
+				o.ArrayLimit = 8
+			}
+			o.ArrayLimit = key + 8
+			var newarray = make([]interface{}, o.ArrayLimit)
+			copy(o.array, newarray)
+			o.array = newarray
+		}
+	}
+	o.array[key] = val
+}
+
+func (o *SCache) Set(val interface{}, key interface{}) error {
+	return o.SetEx(val, key, true)
+}
+
+func (o *SCache) SetEx(val interface{}, key interface{}, lock bool) error {
 	if err := o.callUpdater(FLAG_UPDATE_SET|FLAG_UPDATE_ASPECT_BEFORE, val, key); err != nil {
 		return err
 	}
-
-	o.mutex.Lock()
-	o.data[key] = val
-	o.mutex.Unlock()
-
+	var ikey, ok = key.(int)
+	if ok {
+		o.SetI(val, ikey, lock)
+	} else {
+		var skey = util.AsStr(key, "")
+		if lock {
+			o.mutex.Lock()
+			defer o.mutex.Unlock()
+		}
+		o.data[skey] = val
+	}
 	return o.callUpdater(FLAG_UPDATE_SET|FLAG_UPDATE_ASPECT_AFTER, val, key)
 }
 
@@ -290,25 +342,24 @@ func (o *SCache) Delete(key string) error {
 	return nil
 }
 
-func (o *SCache) GetSub(keys ...string) *SCache {
+func (o *SCache) GetSub(keys ...interface{}) *SCache {
 	return o.GetSubEx(0, keys)
 }
 
-func (o *SCache) GetSubEx(index int, keys []string) *SCache {
+func (o *SCache) GetSubEx(index int, keys []interface{}) *SCache {
 	var current = o
 	var keyslen = len(keys) - 1 - index
+
 	for i, key := range keys {
-		current.mutex.RLock()
-		var sub = current.data[key]
-		current.mutex.RUnlock()
+		var sub, _ = current.GetEx(false, 0, 0, true, key)
 		if sub == nil {
 			current.mutex.Lock()
-			sub, _ = current.data[key]
+			sub, _ = current.GetEx(false, 0, 0, false, key)
 			if sub == nil {
 				var keylen_minus_index = len(keys) - index
 				var path = keys[:keylen_minus_index]
-				sub = NewSCache("", o.root, o, path...)
-				current.data[key] = sub
+				sub = NewSCache("", CacheMap, o.root, o, path...)
+				o.SetEx(sub, key, false)
 			}
 			current.mutex.Unlock()
 		}
@@ -321,22 +372,22 @@ func (o *SCache) GetSubEx(index int, keys []string) *SCache {
 	return nil
 }
 
-func (o *SCache) GetSubVal(load bool, keys ...string) (val interface{}, err error) {
-	return o.GetSubValEx(load, 0, 0, keys)
+func (o *SCache) GetSubVal(load bool, keys ...interface{}) (val interface{}, err error) {
+	return o.GetSubValEx(load, 0, 0, true, keys)
 }
 
-func (o *SCache) GetSubValEx(load bool, factor int, timeout time.Duration, keys []string) (val interface{}, err error) {
+func (o *SCache) GetSubValEx(load bool, factor int, timeout time.Duration, lock bool, keys []interface{}) (val interface{}, err error) {
 	var keyslen = len(keys)
 	var sub = o.GetSubEx(1, keys)
 	if sub == nil {
 		return nil, fmt.Errorf("sub not found by path : %v", keys[:keyslen-1])
 	}
 	var key = keys[keyslen-1]
-	return sub.GetEx(load, factor, timeout, key)
+	return sub.GetEx(load, factor, timeout, lock, key)
 }
 
 // keys_and_ids split by len == 0 string
-func (o *SCache) ListSubValEx(load bool, factor int, timeout time.Duration, path []string, keys []string) (val []interface{}, err error) {
+func (o *SCache) ListSubValEx(load bool, factor int, timeout time.Duration, path []interface{}, keys []string) (val []interface{}, err error) {
 	var sub = o.GetSubEx(0, path)
 	if sub == nil {
 		return nil, fmt.Errorf("sub not found by path : %v", path)
@@ -344,18 +395,18 @@ func (o *SCache) ListSubValEx(load bool, factor int, timeout time.Duration, path
 	return sub.ListEx(load, factor, timeout, keys)
 }
 
-func (o *SCache) ListSubVal(load bool, path []string, keys []string) (val []interface{}, err error) {
+func (o *SCache) ListSubVal(load bool, path []interface{}, keys []string) (val []interface{}, err error) {
 	return o.ListSubValEx(load, 0, 0, path, keys)
 }
 
-func (o *SCache) SetSubVal(val interface{}, keys ...string) {
+func (o *SCache) SetSubVal(val interface{}, keys ...interface{}) {
 	var keyslen = len(keys)
 	var sub = o.GetSubEx(1, keys)
 	var key = keys[keyslen-1]
 	sub.Set(val, key)
 }
 
-func (o *SCache) SetSubVals(vals []interface{}, keys []string, pathes ...string) {
+func (o *SCache) SetSubVals(vals []interface{}, keys []string, pathes ...interface{}) {
 	var sub = o.GetSubEx(1, pathes)
 	sub.Sets(vals, keys)
 }
