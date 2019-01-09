@@ -13,8 +13,8 @@ const FLAG_UPDATE_DELETE = 0x2
 const FLAG_UPDATE_ASPECT_BEFORE = 0x1000
 const FLAG_UPDATE_ASPECT_AFTER = 0x2000
 
-type Loader func(cache *SCache, factor int, timeout time.Duration, keys ...interface{}) (interface{}, error)
-type Updater func(cache *SCache, flag int, val interface{}, keys ...interface{}) error
+type Loader func(cache *SCache, factor int, timeout time.Duration, lock bool, keys ...interface{}) (interface{}, error)
+type Updater func(cache *SCache, flag int, val interface{}, lock bool, keys ...interface{}) error
 
 type Manager struct {
 	mutex  sync.Mutex
@@ -43,7 +43,8 @@ type SCache struct {
 	data  map[string]interface{}
 	array []interface{}
 
-	ArrayLimit       int
+	arrayLimit       int
+	ArrayLimitInit   int
 	Loader           Loader
 	Updater          Updater
 	UseParentUpdater bool
@@ -60,7 +61,7 @@ func GetManager() *Manager {
 	return _scacheManager
 }
 
-func NewSCache(name string, cacheType SCacheType, root *SCache, parent *SCache, path ...interface{}) *SCache {
+func NewSCache(name string, root *SCache, parent *SCache, lock bool, path ...interface{}) *SCache {
 	if len(name) == 0 {
 		if path != nil {
 			for i := 0; i < len(path); i++ {
@@ -69,6 +70,7 @@ func NewSCache(name string, cacheType SCacheType, root *SCache, parent *SCache, 
 			}
 		}
 	}
+
 	var scache = &SCache{
 		Name:   name,
 		path:   path,
@@ -76,6 +78,12 @@ func NewSCache(name string, cacheType SCacheType, root *SCache, parent *SCache, 
 		parent: parent,
 		data:   make(map[string]interface{}),
 	}
+	if scache.ArrayLimitInit < 2 {
+		scache.ArrayLimitInit = 2
+	}
+	scache.arrayLimit = scache.ArrayLimitInit
+	scache.array = make([]interface{}, scache.arrayLimit)
+
 	if root == nil {
 		scache.root = scache
 	}
@@ -83,22 +91,26 @@ func NewSCache(name string, cacheType SCacheType, root *SCache, parent *SCache, 
 }
 
 func (o *Manager) Get(name string) *SCache {
-	return o.GetEx(name, CacheMap)
+	return o.GetEx(name, true)
 }
 
-func (o *Manager) GetEx(name string, cacheType SCacheType) *SCache {
+func (o *Manager) GetEx(name string, lock bool) *SCache {
 	if len(name) == 0 {
 		return nil
 	}
 	var c = o.caches[name]
 	if c == nil {
-		o.mutex.Lock()
-		defer o.mutex.Unlock()
-		c = o.caches[name]
-		if c == nil {
-			c = NewSCache(name, cacheType, nil, nil)
-			o.caches[name] = c
-		}
+		func() {
+			if lock {
+				o.mutex.Lock()
+				defer o.mutex.Unlock()
+			}
+			c = o.caches[name]
+			if c == nil {
+				c = NewSCache(name, nil, nil, lock)
+				o.caches[name] = c
+			}
+		}()
 	}
 	return c
 }
@@ -114,7 +126,7 @@ func (o *Manager) RGet(arg qrpc.QArg, reply *qrpc.QArg) {
 
 }
 
-func (o *SCache) Load(key interface{}, factor int, timeout time.Duration) (val interface{}, err error) {
+func (o *SCache) Load(key interface{}, factor int, timeout time.Duration, lock bool) (val interface{}, err error) {
 	if o.Loader == nil {
 		if o.root == nil || o.root == o {
 			return o.Get(false, key)
@@ -128,17 +140,17 @@ func (o *SCache) Load(key interface{}, factor int, timeout time.Duration) (val i
 			}
 			if actor.Loader != nil {
 				var actorkeys = append(child.path, key)
-				val, err = actor.Loader(actor, factor, timeout, actorkeys...)
+				val, err = actor.Loader(actor, factor, timeout, lock, actorkeys...)
 				break
 			}
 			child = child.parent
 		}
 	} else {
-		val, err = o.Loader(o, factor, timeout, key)
+		val, err = o.Loader(o, factor, timeout, lock, key)
 	}
 
 	if val != nil {
-		o.Set(val, key)
+		o.SetEx(val, key, lock)
 	}
 
 	return val, err
@@ -152,7 +164,7 @@ func (o *SCache) Exist(key string) (val interface{}, exist bool) {
 }
 
 func (o *SCache) GetI(key int) (val interface{}, err error) {
-	if o.array == nil || key >= o.ArrayLimit {
+	if o.array == nil || key >= o.arrayLimit {
 		return nil, nil
 	}
 	return o.array[key], nil
@@ -178,7 +190,7 @@ func (o *SCache) GetEx(load bool, factor int, timeout time.Duration, lock bool, 
 		}
 	}
 	if val == nil && load {
-		val, err = o.Load(key, factor, timeout)
+		val, err = o.Load(key, factor, timeout, lock)
 	}
 	return val, err
 }
@@ -225,10 +237,10 @@ func (o *SCache) ListKVEx(load bool, factor int, timeout time.Duration, keys []s
 	return kv, err
 }
 
-func (o *SCache) callUpdater(opt int, val interface{}, key interface{}) error {
+func (o *SCache) callUpdater(opt int, val interface{}, key interface{}, lock bool) error {
 
 	if o.Updater != nil {
-		return o.Updater(o, opt, val, key)
+		return o.Updater(o, opt, val, lock, key)
 	}
 
 	if !o.UseParentUpdater {
@@ -244,7 +256,7 @@ func (o *SCache) callUpdater(opt int, val interface{}, key interface{}) error {
 		}
 		if actor.Updater != nil {
 			var actorkeys = append(child.path, key)
-			return actor.Updater(actor, opt, val, actorkeys...)
+			return actor.Updater(actor, opt, val, lock, actorkeys...)
 		}
 		child = child.parent
 	}
@@ -252,17 +264,25 @@ func (o *SCache) callUpdater(opt int, val interface{}, key interface{}) error {
 }
 
 func (o *SCache) SetI(val interface{}, key int, lock bool) {
-	if o.array == nil || key >= o.ArrayLimit {
+	if o.array == nil || key >= o.arrayLimit {
 		if lock {
 			o.mutex.Lock()
 			defer o.mutex.Unlock()
 		}
-		if o.array == nil || key >= o.ArrayLimit {
-			if o.ArrayLimit <= 8 {
-				o.ArrayLimit = 8
+
+		if o.array == nil {
+			if o.ArrayLimitInit <= 8 {
+				o.arrayLimit = 8
+			} else {
+				o.arrayLimit = o.ArrayLimitInit
 			}
-			o.ArrayLimit = key + 8
-			var newarray = make([]interface{}, o.ArrayLimit)
+		}
+
+		o.array = make([]interface{}, o.arrayLimit)
+
+		if key >= o.arrayLimit {
+			o.arrayLimit = key + 8
+			var newarray = make([]interface{}, o.arrayLimit)
 			copy(o.array, newarray)
 			o.array = newarray
 		}
@@ -275,7 +295,7 @@ func (o *SCache) Set(val interface{}, key interface{}) error {
 }
 
 func (o *SCache) SetEx(val interface{}, key interface{}, lock bool) error {
-	if err := o.callUpdater(FLAG_UPDATE_SET|FLAG_UPDATE_ASPECT_BEFORE, val, key); err != nil {
+	if err := o.callUpdater(FLAG_UPDATE_SET|FLAG_UPDATE_ASPECT_BEFORE, val, key, lock); err != nil {
 		return err
 	}
 	var ikey, ok = key.(int)
@@ -289,10 +309,10 @@ func (o *SCache) SetEx(val interface{}, key interface{}, lock bool) error {
 		}
 		o.data[skey] = val
 	}
-	return o.callUpdater(FLAG_UPDATE_SET|FLAG_UPDATE_ASPECT_AFTER, val, key)
+	return o.callUpdater(FLAG_UPDATE_SET|FLAG_UPDATE_ASPECT_AFTER, val, key, lock)
 }
 
-func (o *SCache) Sets(vals []interface{}, keys []string) error {
+func (o *SCache) Sets(lock bool, vals []interface{}, keys []interface{}) error {
 	var vallen = len(vals)
 	var keylen = len(keys)
 	if vallen != keylen {
@@ -304,26 +324,29 @@ func (o *SCache) Sets(vals []interface{}, keys []string) error {
 		for i := 0; i < vallen; i++ {
 			var key = keys[i]
 			var val = vals[i]
-			err = o.callUpdater(FLAG_UPDATE_SET|FLAG_UPDATE_ASPECT_BEFORE, val, key)
+			err = o.callUpdater(FLAG_UPDATE_SET|FLAG_UPDATE_ASPECT_BEFORE, val, key, lock)
 			if err != nil {
 				return err
 			}
 		}
 	}
-
-	o.mutex.Lock()
-	for i := 0; i < vallen; i++ {
-		var key = keys[i]
-		var val = vals[i]
-		o.data[key] = val
-	}
-	o.mutex.Unlock()
+	func() {
+		if lock {
+			o.mutex.Lock()
+			defer o.mutex.Unlock()
+		}
+		for i := 0; i < vallen; i++ {
+			var key = keys[i]
+			var val = vals[i]
+			o.SetEx(val, key, false)
+		}
+	}()
 
 	if o.Updater != nil || o.UseParentUpdater {
 		for i := 0; i < vallen; i++ {
 			var key = keys[i]
 			var val = vals[i]
-			err = o.callUpdater(FLAG_UPDATE_SET|FLAG_UPDATE_ASPECT_AFTER, val, key)
+			err = o.callUpdater(FLAG_UPDATE_SET|FLAG_UPDATE_ASPECT_AFTER, val, key, lock)
 			if err != nil {
 				return err
 			}
@@ -333,20 +356,32 @@ func (o *SCache) Sets(vals []interface{}, keys []string) error {
 	return nil
 }
 
-func (o *SCache) Delete(key string) error {
-	o.callUpdater(FLAG_UPDATE_DELETE|FLAG_UPDATE_ASPECT_BEFORE, nil, key)
-	o.mutex.Lock()
-	delete(o.data, key)
-	o.mutex.Unlock()
-	o.callUpdater(FLAG_UPDATE_DELETE|FLAG_UPDATE_ASPECT_AFTER, nil, key)
+func (o *SCache) Delete(key interface{}, lock bool) error {
+	o.callUpdater(FLAG_UPDATE_DELETE|FLAG_UPDATE_ASPECT_BEFORE, nil, key, lock)
+
+	var ikey, ok = key.(int)
+	if ok {
+		o.array[ikey] = nil
+	} else {
+		var skey = util.AsStr(key, "")
+		if lock {
+			o.mutex.Lock()
+		}
+		delete(o.data, skey)
+		if lock {
+			o.mutex.Unlock()
+		}
+	}
+
+	o.callUpdater(FLAG_UPDATE_DELETE|FLAG_UPDATE_ASPECT_AFTER, nil, key, lock)
 	return nil
 }
 
 func (o *SCache) GetSub(keys ...interface{}) *SCache {
-	return o.GetSubEx(0, keys)
+	return o.GetSubEx(true, 0, keys)
 }
 
-func (o *SCache) GetSubEx(index int, keys []interface{}) *SCache {
+func (o *SCache) GetSubEx(lock bool, index int, keys []interface{}) *SCache {
 	var current = o
 	var keyslen = len(keys) - 1 - index
 
@@ -358,7 +393,7 @@ func (o *SCache) GetSubEx(index int, keys []interface{}) *SCache {
 			if sub == nil {
 				var keylen_minus_index = len(keys) - index
 				var path = keys[:keylen_minus_index]
-				sub = NewSCache("", CacheMap, o.root, o, path...)
+				sub = NewSCache("", o.root, o, lock, path...)
 				o.SetEx(sub, key, false)
 			}
 			current.mutex.Unlock()
@@ -378,7 +413,7 @@ func (o *SCache) GetSubVal(load bool, keys ...interface{}) (val interface{}, err
 
 func (o *SCache) GetSubValEx(load bool, factor int, timeout time.Duration, lock bool, keys []interface{}) (val interface{}, err error) {
 	var keyslen = len(keys)
-	var sub = o.GetSubEx(1, keys)
+	var sub = o.GetSubEx(lock, 1, keys)
 	if sub == nil {
 		return nil, fmt.Errorf("sub not found by path : %v", keys[:keyslen-1])
 	}
@@ -387,8 +422,8 @@ func (o *SCache) GetSubValEx(load bool, factor int, timeout time.Duration, lock 
 }
 
 // keys_and_ids split by len == 0 string
-func (o *SCache) ListSubValEx(load bool, factor int, timeout time.Duration, path []interface{}, keys []string) (val []interface{}, err error) {
-	var sub = o.GetSubEx(0, path)
+func (o *SCache) ListSubValEx(load bool, factor int, timeout time.Duration, lock bool, path []interface{}, keys []string) (val []interface{}, err error) {
+	var sub = o.GetSubEx(lock, 0, path)
 	if sub == nil {
 		return nil, fmt.Errorf("sub not found by path : %v", path)
 	}
@@ -396,29 +431,37 @@ func (o *SCache) ListSubValEx(load bool, factor int, timeout time.Duration, path
 }
 
 func (o *SCache) ListSubVal(load bool, path []interface{}, keys []string) (val []interface{}, err error) {
-	return o.ListSubValEx(load, 0, 0, path, keys)
+	return o.ListSubValEx(load, 0, 0, true, path, keys)
 }
 
-func (o *SCache) SetSubVal(val interface{}, keys ...interface{}) {
+func (o *SCache) SetSubVal(lock bool, val interface{}, keys ...interface{}) {
 	var keyslen = len(keys)
-	var sub = o.GetSubEx(1, keys)
+	var sub = o.GetSubEx(lock, 1, keys)
 	var key = keys[keyslen-1]
 	sub.Set(val, key)
 }
 
-func (o *SCache) SetSubVals(vals []interface{}, keys []string, pathes ...interface{}) {
-	var sub = o.GetSubEx(1, pathes)
-	sub.Sets(vals, keys)
+func (o *SCache) SetSubVals(lock bool, vals []interface{}, keys []interface{}, pathes ...interface{}) {
+	var sub = o.GetSubEx(lock, 1, pathes)
+	sub.Sets(lock, vals, keys)
 }
 
-func (o *SCache) Keys() ([]string, error) {
-	o.mutex.RLock()
-	defer o.mutex.RUnlock()
-	var keys = make([]string, len(o.data))
+func (o *SCache) Keys(lock bool) ([]interface{}, error) {
+	if lock {
+		o.mutex.RLock()
+		defer o.mutex.RUnlock()
+	}
+	var keys = make([]interface{}, len(o.data)+len(o.array))
 	var i = 0
 	for key := range o.data {
 		keys[i] = key
 		i++
+	}
+	for key, val := range o.array {
+		if val != nil {
+			keys[i] = key
+			i++
+		}
 	}
 	return keys, nil
 }
