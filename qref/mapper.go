@@ -131,6 +131,7 @@ func (o *Mapper) Init(name string, options map[string]interface{}, inherit *Mapp
 			}
 		} else if kind == reflect.String {
 			nameto = util.AsStr(mapic, "")
+			create = true
 		}
 		mapi = &Mapi{
 			Name:    mapiname,
