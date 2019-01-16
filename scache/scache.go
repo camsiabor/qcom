@@ -21,15 +21,7 @@ type Manager struct {
 	caches map[string]*SCache
 }
 
-type SCacheType int
-
-const (
-	CacheMap SCacheType = 0
-	CacheArray
-)
-
 type SCache struct {
-	Type   SCacheType
 	Name   string
 	Db     string
 	Dao    string
@@ -176,8 +168,8 @@ func (o *SCache) Get(load bool, key interface{}) (val interface{}, err error) {
 
 func (o *SCache) GetEx(load bool, factor int, timeout time.Duration, lock bool, key interface{}) (val interface{}, err error) {
 
-	var ikey, ok = key.(int)
-	if ok {
+	var ikey, ierr = util.SimpleNumberAsInt(key)
+	if ierr == nil {
 		val, err = o.GetI(ikey)
 	} else {
 		var skey = util.AsStr(key, "")
@@ -298,8 +290,8 @@ func (o *SCache) SetEx(val interface{}, key interface{}, lock bool) error {
 	if err := o.callUpdater(FLAG_UPDATE_SET|FLAG_UPDATE_ASPECT_BEFORE, val, key, lock); err != nil {
 		return err
 	}
-	var ikey, ok = key.(int)
-	if ok {
+	var ikey, err = util.SimpleNumberAsInt(key)
+	if err == nil {
 		o.SetI(val, ikey, lock)
 	} else {
 		var skey = util.AsStr(key, "")
@@ -359,8 +351,8 @@ func (o *SCache) Sets(lock bool, vals []interface{}, keys []interface{}) error {
 func (o *SCache) Delete(key interface{}, lock bool) error {
 	o.callUpdater(FLAG_UPDATE_DELETE|FLAG_UPDATE_ASPECT_BEFORE, nil, key, lock)
 
-	var ikey, ok = key.(int)
-	if ok {
+	var ikey, err = util.SimpleNumberAsInt(key)
+	if err == nil {
 		o.array[ikey] = nil
 	} else {
 		var skey = util.AsStr(key, "")
@@ -502,8 +494,4 @@ func (o *SCache) GetAll() (retm map[string]interface{}, err error) {
 		}
 	}
 	return retm, err
-}
-
-func rw() {
-
 }

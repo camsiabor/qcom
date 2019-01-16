@@ -51,6 +51,57 @@ func AsStr(o interface{}, defaultval string) (r string) {
 	return defaultval
 }
 
+var iamstring = errors.New("i am string")
+
+func SimpleNumberAsInt(o interface{}) (int, error) {
+	if o == nil {
+		return -1, errors.New("null")
+	}
+	var vref = reflect.ValueOf(o)
+	var kind = vref.Kind()
+	if kind == reflect.String {
+		return 0, iamstring
+	}
+	if kind == reflect.Float64 {
+		return int(o.(float64)), nil
+	}
+	if kind == reflect.Int64 {
+		return int(o.(int64)), nil
+	}
+	switch kind {
+	case reflect.Int:
+		return o.(int), nil
+	case reflect.Int32:
+		return int(o.(int32)), nil
+	case reflect.Float32:
+		return int(o.(float32)), nil
+	}
+	return 0, fmt.Errorf("cannot convert %v (%t) to int", o, o)
+}
+
+func NumberAsInt(o interface{}) (int, error) {
+	if o == nil {
+		return -1, errors.New("null")
+	}
+	var vref = reflect.ValueOf(o)
+	var kind = vref.Kind()
+	switch kind {
+	case reflect.Int:
+		return o.(int), nil
+	case reflect.Int64:
+		return int(o.(int64)), nil
+	case reflect.Float64:
+		return int(o.(float64)), nil
+	case reflect.Float32:
+		return int(o.(float32)), nil
+	case reflect.Int8, reflect.Int16, reflect.Int32:
+		return int(vref.Int()), nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return int(vref.Uint()), nil
+	}
+	return 0, fmt.Errorf("cannot convert %v (%t) to int", o, o)
+}
+
 func AsInt(o interface{}, defaultval int) (r int) {
 	if o == nil {
 		return defaultval
