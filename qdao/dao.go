@@ -36,6 +36,7 @@ type D interface {
 
 	Get(db string, group string, id interface{}, unmarshal int, opt QOpt) (ret interface{}, err error)
 	Gets(db string, group string, ids []interface{}, unmarshal int, opt QOpt) (rets []interface{}, err error)
+	List(db string, group string, from int, size int, unmarshal int, opt QOpt) (rets []interface{}, cursor int, err error)
 	Query(db string, query string, args []interface{}, opt QOpt) (interface{}, error)
 
 	//Scan(db string, group string, from int, size int, unmarshal bool, opt QOpt, query ...interface{}) (ret []interface{}, cursor int, total int, err error)
