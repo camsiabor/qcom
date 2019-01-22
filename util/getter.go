@@ -1012,3 +1012,26 @@ func SliceCloneShallow(src []interface{}) []interface{} {
 	}
 	return r
 }
+
+func SliceConcat(src ...[]interface{}) []interface{} {
+	var total = 0
+	var count = len(src)
+	for i := 0; i < count; i++ {
+		var one = src[i]
+		if one != nil {
+			var n = len(one)
+			total = total + n
+		}
+	}
+	var offset = 0
+	var data = make([]interface{}, total)
+	for i := 0; i < count; i++ {
+		var one = src[i]
+		if one != nil {
+			var n = len(one)
+			copy(data[offset:offset+n], one)
+			offset = offset + n
+		}
+	}
+	return data
+}

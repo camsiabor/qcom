@@ -63,3 +63,32 @@ func (o QOpt) GetFields() []string {
 func (o QOpt) SetFields(fields []string) {
 	o["fields"] = fields
 }
+
+func ListAll(dao D, db string, group string, from int, size int, unmarshal int, opt QOpt) (data []interface{}, err error) {
+	var i = 0
+	var capacity = 64
+	var many = make([][]interface{}, capacity)
+	for {
+		each, cursor, err := dao.List(db, group, from, size, unmarshal, opt)
+		if err != nil {
+			return nil, err
+		}
+		if cursor < 0 {
+			break
+		}
+		from = cursor
+		var count = len(each)
+		if count > 0 {
+			if i >= capacity {
+				capacity = capacity << 2
+				var newmany = make([][]interface{}, capacity)
+				copy(newmany, many)
+				many = newmany
+			}
+			many[i] = each
+			i = i + 1
+		}
+	}
+	data = util.SliceConcat(many[:i]...)
+	return data, err
+}
