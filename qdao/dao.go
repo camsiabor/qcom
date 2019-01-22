@@ -73,12 +73,7 @@ func ListAll(dao D, db string, group string, from int, size int, unmarshal int, 
 		if err != nil {
 			return nil, err
 		}
-		if cursor < 0 {
-			break
-		}
-		from = cursor
-		var count = len(each)
-		if count > 0 {
+		if each != nil && len(each) > 0 {
 			if i >= capacity {
 				capacity = capacity << 2
 				var newmany = make([][]interface{}, capacity)
@@ -88,6 +83,10 @@ func ListAll(dao D, db string, group string, from int, size int, unmarshal int, 
 			many[i] = each
 			i = i + 1
 		}
+		if cursor < 0 {
+			break
+		}
+		from = cursor
 	}
 	data = util.SliceConcat(many[:i]...)
 	return data, err
