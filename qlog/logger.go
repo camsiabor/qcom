@@ -26,7 +26,7 @@ var LevelStr = [6]string{"VERBOSE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"}
 
 type Logi struct {
 	today    time.Time
-	tomorrow time.Time
+	todayday int
 	writers  []io.WriteCloser
 	agents   []*log.Logger
 	//logChannel chan * string;
@@ -83,7 +83,11 @@ func (o *Logi) Destroy() {
 	defer o.lock.Unlock()
 	if o.writers != nil {
 		for _, writer := range o.writers {
-			writer.Close()
+			if writer != nil {
+				if writer != os.Stdout && writer != os.Stderr {
+					writer.Close()
+				}
+			}
 		}
 		o.writers = nil
 		o.agents = nil
@@ -104,13 +108,33 @@ func (o *Logi) AddWriter(writer io.WriteCloser, prefix string, flag int, lock bo
 			defer o.lock.Unlock()
 		}
 		if o.writers == nil {
-			o.writers = make([]io.WriteCloser, 2)
+			o.writers = make([]io.WriteCloser, 1)
 		}
 		if o.agents == nil {
-			o.agents = make([]*log.Logger, 2)
+			o.agents = make([]*log.Logger, 1)
 		}
-		o.writers = append(o.writers, writer)
-		o.agents = append(o.agents, log.New(writer, prefix, flag))
+		var nospace = true
+		var agent = log.New(writer, prefix, flag)
+		for i := 0; i < len(o.writers); i++ {
+			if o.writers[i] == nil {
+				o.writers[i] = writer
+				nospace = false
+				break
+			}
+		}
+		if nospace {
+			o.writers = append(o.writers, writer)
+		}
+		for i := 0; i < len(o.agents); i++ {
+			if o.agents[i] == nil {
+				o.agents[i] = agent
+				nospace = false
+				break
+			}
+		}
+		if nospace {
+			o.agents = append(o.agents, agent)
+		}
 	}
 }
 
@@ -129,8 +153,9 @@ func (o *Logi) LogEx(level int, stackSkip int, v ...interface{}) {
 	}
 
 	var today = time.Now()
+	var todayday = today.Day()
 
-	if today.After(o.tomorrow) {
+	if todayday != o.todayday {
 		o.Destroy()
 	}
 
@@ -144,7 +169,7 @@ func (o *Logi) LogEx(level int, stackSkip int, v ...interface{}) {
 			o.agents = nil
 
 			o.today = today
-			o.tomorrow = today.AddDate(0, 0, 1)
+			o.todayday = today.Day()
 			var filename = o.FilePrefix + today.Format("20060102") + o.FileSuffix
 			var filepath = o.Dir + "/" + filename
 			if err := os.MkdirAll("log", 0774); err != nil {
