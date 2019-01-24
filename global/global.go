@@ -19,6 +19,7 @@ type G struct {
 	lock         sync.RWMutex
 	chCmdBus     chan *Cmd
 	data         map[string]interface{}
+	modules      map[string]Module
 	cmdHandlers  map[string][]CmdHandler
 	PanicHandler func(pan interface{})
 	CycleHandler func(cycle string, g *G, data interface{})
@@ -27,8 +28,9 @@ type G struct {
 
 var _instance *G = &G{
 	chCmdBus:    make(chan *Cmd, 1024),
-	cmdHandlers: make(map[string][]CmdHandler),
-	data:        make(map[string]interface{}),
+	cmdHandlers: map[string][]CmdHandler{},
+	data:        map[string]interface{}{},
+	modules:     map[string]Module{},
 }
 
 func GetInstance() *G {
@@ -160,4 +162,69 @@ func (g *G) Data() map[string]interface{} {
 		m[k] = v
 	}
 	return m
+}
+
+func (g *G) RegisterModule(name string, module Module) error {
+	g.lock.Lock()
+	defer g.lock.Unlock()
+	if len(name) == 0 {
+		panic("module has no name")
+	}
+	var err error
+	var old = g.modules[name]
+	if old != nil {
+		err = old.Terminate(g)
+	}
+	g.modules[name] = module
+	return err
+}
+
+func (g *G) UnregisterModule(name string) error {
+	g.lock.Lock()
+	defer g.lock.Unlock()
+	var module = g.modules[name]
+	var err error
+	if module != nil {
+		err = module.Terminate(g)
+		delete(g.modules, name)
+	}
+	return err
+}
+
+func (g *G) Terminate() error {
+	g.lock.Lock()
+	defer g.lock.Unlock()
+
+	if g.CycleHandler != nil {
+		func() {
+			defer recover()
+			g.CycleHandler("terminate", g, nil)
+		}()
+	}
+
+	func() {
+		defer recover()
+		g.Continue = false
+		if g.Listener != nil {
+			g.Listener.Close()
+		}
+		close(g.chCmdBus)
+	}()
+
+	var perr error
+	for _, module := range g.modules {
+		func() {
+			defer recover()
+			var err = module.Terminate(g)
+			if err != nil {
+				perr = err
+			}
+		}()
+	}
+
+	// clear
+	g.modules = map[string]Module{}
+	g.data = map[string]interface{}{}
+	g.cmdHandlers = map[string][]CmdHandler{}
+	return perr
 }
