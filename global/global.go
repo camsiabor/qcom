@@ -18,6 +18,7 @@ type G struct {
 	state        int
 	lock         sync.RWMutex
 	chCmdBus     chan *Cmd
+	chDirectBus  chan string
 	data         map[string]interface{}
 	modules      map[string]Module
 	cmdHandlers  map[string][]CmdHandler
@@ -28,6 +29,7 @@ type G struct {
 
 var _instance *G = &G{
 	chCmdBus:    make(chan *Cmd, 1024),
+	chDirectBus: make(chan string, 16),
 	cmdHandlers: map[string][]CmdHandler{},
 	data:        map[string]interface{}{},
 	modules:     map[string]Module{},
@@ -42,8 +44,17 @@ func (g *G) Run() {
 	defer g.lock.Unlock()
 	if g.state == 0 {
 		g.state = 1
-		go _instance.cmdLoop()
+		go g.cmdLoop()
 	}
+}
+
+func (g *G) WaitDirect() (string, bool) {
+	var direct, ok = <-g.chDirectBus
+	return direct, ok
+}
+
+func (g *G) SendDirect(direct string) {
+	g.chDirectBus <- direct
 }
 
 func (g *G) cmdLoop() {
@@ -173,7 +184,7 @@ func (g *G) RegisterModule(name string, module Module) error {
 	var err error
 	var old = g.modules[name]
 	if old != nil {
-		err = old.Terminate(g)
+		err = old.Terminate()
 	}
 	g.modules[name] = module
 	return err
@@ -185,7 +196,7 @@ func (g *G) UnregisterModule(name string) error {
 	var module = g.modules[name]
 	var err error
 	if module != nil {
-		err = module.Terminate(g)
+		err = module.Terminate()
 		delete(g.modules, name)
 	}
 	return err
@@ -207,15 +218,24 @@ func (g *G) Terminate() error {
 		g.Continue = false
 		if g.Listener != nil {
 			g.Listener.Close()
+			g.Listener = nil
 		}
-		close(g.chCmdBus)
+		if g.chCmdBus != nil {
+			close(g.chCmdBus)
+			g.chCmdBus = nil
+		}
+
+		if g.chDirectBus != nil {
+			close(g.chDirectBus)
+			g.chDirectBus = nil
+		}
 	}()
 
 	var perr error
 	for _, module := range g.modules {
 		func() {
 			defer recover()
-			var err = module.Terminate(g)
+			var err = module.Terminate()
 			if err != nil {
 				perr = err
 			}

@@ -9,11 +9,10 @@ import (
 	"os"
 )
 
-
 // Single represents the name and the open file descriptor
 type FileLock struct {
 	name string
-	file * os.File
+	file *os.File
 }
 
 // New creates a Single instance
@@ -21,27 +20,32 @@ func NewFileLock(name string) *FileLock {
 	return &FileLock{name: name}
 }
 
-func (o * FileLock) GetFileName() string {
-	return o.name;
+func (o *FileLock) GetFileName() string {
+	return o.name
 }
 
-func (o * FileLock) GetFile() * os.File {
-	return o.file;
+func (o *FileLock) GetFile() *os.File {
+	return o.file
 }
 
-func (o * FileLock) ReadString() (string, error) {
-	var bytes, err = ioutil.ReadAll(o.file);
-	if (err != nil) {
-		return "", err;
+func (o *FileLock) ReadString() (string, error) {
+	var bytes, err = ioutil.ReadAll(o.file)
+	if err != nil {
+		return "", err
 	}
-	return string(bytes[:]), err;
+	return string(bytes[:]), err
 }
 
-func (o * FileLock) WriteString(v interface{}) error {
-	if (o.file == nil) {
-		return errors.New("file not lock yet :" + o.name);
+func (o *FileLock) WriteString(v interface{}) error {
+	if o.file == nil {
+		return errors.New("file not lock yet :" + o.name)
 	}
-	var s = util.AsStr(v, "");
-	var _, err = o.file.WriteString(s);
-	return err;
+	var s = util.AsStr(v, "")
+	var _, err = o.file.WriteString(s)
+	return err
+}
+
+func (o *FileLock) Terminate() error {
+
+	return o.UnLock()
 }

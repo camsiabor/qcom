@@ -2,7 +2,6 @@ package qdao
 
 import (
 	"fmt"
-	"github.com/camsiabor/qcom/global"
 	"github.com/camsiabor/qcom/qerr"
 	"github.com/camsiabor/qcom/qlog"
 	"github.com/camsiabor/qcom/util"
@@ -79,7 +78,7 @@ func (o *DaoManager) Init(producer DaoProducer, schemaOpts map[string]interface{
 	return nil
 }
 
-func (o *DaoManager) Terminate(g *global.G) error {
+func (o *DaoManager) Terminate() error {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 	var perr error
