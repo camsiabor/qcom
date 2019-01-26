@@ -153,3 +153,9 @@ func GetTimeFormatIntervalArray(from *time.Time, to *time.Time, layout string, l
 
 	return time_array[:i], nil
 }
+
+func TruncateHMS(t *time.Time) *time.Time {
+	var delta = time.Duration(t.Hour())*time.Hour + time.Duration(t.Minute())*time.Minute + time.Duration(t.Second())*time.Second
+	*t = t.Add(-delta)
+	return t
+}
