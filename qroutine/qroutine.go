@@ -9,19 +9,19 @@ import (
 
 type SimpleRoutine func(arg interface{}) interface{}
 
-
 type Box struct {
-	Arg interface{}
+	Arg     interface{}
 	Routine SimpleRoutine
 
-	err error
-	ret interface{}
-	state BoxState
-	wg * sync.WaitGroup
-	wgcount * int32
+	err     error
+	ret     interface{}
+	state   BoxState
+	wg      *sync.WaitGroup
+	wgcount *int32
 }
 
 type BoxState int
+
 const (
 	PENDING BoxState = iota
 	RUNNING
@@ -29,22 +29,19 @@ const (
 	ERROR
 )
 
-
 func NewBox(routine SimpleRoutine, arg interface{}) *Box {
-	return &Box { Routine : routine, Arg : arg }
+	return &Box{Routine: routine, Arg: arg}
 }
 
-
-func (o * Box) GetState() BoxState {
+func (o *Box) GetState() BoxState {
 	return o.state
 }
 
-func (o * Box) GetResult() (interface{}, error) {
+func (o *Box) GetResult() (interface{}, error) {
 	return o.ret, o.err
 }
 
-
-func (o * Box) done(state BoxState) {
+func (o *Box) done(state BoxState) {
 	o.state = state
 	if o.wgcount != nil {
 		atomic.AddInt32(o.wgcount, -1)
@@ -54,8 +51,7 @@ func (o * Box) done(state BoxState) {
 	}
 }
 
-
-func (o * Box) recover() {
+func (o *Box) recover() {
 	var pan = recover()
 	if pan != nil {
 		var err, ok = pan.(error)
@@ -68,7 +64,7 @@ func (o * Box) recover() {
 	}
 }
 
-func (o * Box) Go() {
+func (o *Box) Go() {
 	o.state = PENDING
 	go func() {
 		defer o.recover()
@@ -78,9 +74,8 @@ func (o * Box) Go() {
 	}()
 }
 
-
 // timeout < 0  no wait, timeout == 0 wait until all done
-func Exec(timeout time.Duration, boxes ... * Box) {
+func Exec(timeout time.Duration, boxes ...*Box) {
 
 	var count = len(boxes)
 	var wg = &sync.WaitGroup{}
@@ -106,16 +101,9 @@ func Exec(timeout time.Duration, boxes ... * Box) {
 			time.Sleep(timeout)
 			var remaining = -int(atomic.LoadInt32(&wgcount))
 			wg.Add(remaining)
-		}
+		}()
 	}
 
 	wg.Wait()
 
 }
-
-
-
-
-
-
-
