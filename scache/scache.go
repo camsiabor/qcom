@@ -1,6 +1,7 @@
 package scache
 
 import (
+	"errors"
 	"fmt"
 	"github.com/camsiabor/qcom/qrpc"
 	"github.com/camsiabor/qcom/util"
@@ -13,6 +14,7 @@ const FLAG_UPDATE_DELETE = 0x2
 const FLAG_UPDATE_ASPECT_BEFORE = 0x1000
 const FLAG_UPDATE_ASPECT_AFTER = 0x2000
 
+type Initer func(cache *SCache, lock bool) (interface{}, error)
 type Loader func(cache *SCache, factor int, timeout time.Duration, lock bool, keys ...interface{}) (interface{}, error)
 type Updater func(cache *SCache, flag int, val interface{}, lock bool, keys ...interface{}) error
 
@@ -38,6 +40,7 @@ type SCache struct {
 	arrayLimit       int
 	ArrayLimitInit   int
 	Loader           Loader
+	Initer           Initer
 	Updater          Updater
 	UseParentUpdater bool
 	Timeout          time.Duration
@@ -116,6 +119,13 @@ func (o *Manager) RGet(arg qrpc.QArg, reply *qrpc.QArg) {
 		return
 	}
 
+}
+
+func (o *SCache) Init(lock bool) (interface{}, error) {
+	if o.Initer != nil {
+		return o.Initer(o, lock)
+	}
+	return nil, errors.New("no initer")
 }
 
 func (o *SCache) Load(key interface{}, factor int, timeout time.Duration, lock bool) (val interface{}, err error) {
