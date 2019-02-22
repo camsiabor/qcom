@@ -32,6 +32,31 @@ func MapCloneShallow(src map[string]interface{}) map[string]interface{} {
 	return r
 }
 
+func MapClone(src map[string]interface{}, depth int) map[string]interface{} {
+
+	if depth < 0 {
+		return nil
+	}
+
+	var n = len(src)
+	var r = make(map[string]interface{}, n)
+	for k, v := range src {
+		if v != nil {
+			var submap, ok = v.(map[string]interface{})
+			if ok {
+				v = MapClone(submap, depth-1)
+			} else {
+				var subslice, ok = v.([]interface{})
+				if ok {
+					v = SliceClone(subslice, depth-1)
+				}
+			}
+		}
+		r[k] = v
+	}
+	return r
+}
+
 func ColRowToMaps(cols []string, rows []interface{}) ([]interface{}, error) {
 	var rowcount = len(rows)
 	var colcount = len(cols)

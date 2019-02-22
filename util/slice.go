@@ -50,3 +50,29 @@ func SliceConcat(src ...[]interface{}) []interface{} {
 	}
 	return data
 }
+
+func SliceClone(src []interface{}, depth int) []interface{} {
+
+	if depth < 0 {
+		return nil
+	}
+
+	var n = len(src)
+	var clone = make([]interface{}, n)
+	for i := 0; i < n; i++ {
+		var v = src[i]
+		if v != nil {
+			var submap, ok = v.(map[string]interface{})
+			if ok {
+				v = MapClone(submap, depth-1)
+			} else {
+				var subslice, ok = v.([]interface{})
+				if ok {
+					v = SliceClone(subslice, depth-1)
+				}
+			}
+		}
+		clone[i] = v
+	}
+	return clone
+}
