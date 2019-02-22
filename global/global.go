@@ -3,6 +3,7 @@ package global
 import (
 	"github.com/pkg/errors"
 	"net"
+	"strings"
 	"sync"
 	"time"
 )
@@ -200,6 +201,46 @@ func (g *G) UnregisterModule(name string) error {
 		delete(g.modules, name)
 	}
 	return err
+}
+
+func (g *G) GetModule(name string) Module {
+	g.lock.RLock()
+	defer g.lock.RUnlock()
+	if len(name) == 0 {
+		panic("module name not specified")
+	}
+	return g.modules[name]
+}
+
+func (g *G) FindModules(keyword string) []Module {
+	g.lock.RLock()
+	defer g.lock.RUnlock()
+	var list = make([]Module, 1)
+	for k, v := range g.modules {
+		if v == nil {
+			continue
+		}
+		if strings.Contains(k, keyword) {
+			if len(list) == 1 {
+				list[0] = v
+			} else {
+				list = append(list, v)
+			}
+		}
+	}
+	return list
+}
+
+func (g *G) GetModules() map[string]Module {
+	g.lock.RLock()
+	defer g.lock.RUnlock()
+	var m = make(map[string]Module)
+	for k, v := range g.modules {
+		if v != nil {
+			m[k] = v
+		}
+	}
+	return m
 }
 
 func (g *G) Terminate() error {
