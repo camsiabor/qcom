@@ -1,6 +1,7 @@
 package qnet
 
 import (
+	"github.com/axgle/mahonia"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -24,7 +25,7 @@ func (o *SimpleHttp) SimplePost() {
 
 }
 
-func (o *SimpleHttp) Get(url string, headers map[string]string, encoding string) (string, error) {
+func (o *SimpleHttp) Get(url string, headers map[string]string, encoding string) (string, http.Header, error) {
 
 	var domain string
 	var start = strings.Index(url, "://")
@@ -41,7 +42,7 @@ func (o *SimpleHttp) Get(url string, headers map[string]string, encoding string)
 	}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	req.Header.Set("Host", domain)
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36")
@@ -58,14 +59,19 @@ func (o *SimpleHttp) Get(url string, headers map[string]string, encoding string)
 		defer resp.Body.Close()
 		bytes, err := ioutil.ReadAll(resp.Body)
 		if err == nil {
-			content = string(bytes)
+			content = string(bytes[:])
+			encoding = strings.ToLower(encoding)
+			if encoding != "" && encoding != "utf-8" {
+				var encoder = mahonia.NewDecoder(encoding)
+				content = encoder.ConvertString(content)
+			}
 		}
 	}
 
-	return content, err
+	return content, resp.Header, err
 }
 
-func (o *SimpleHttp) Post(url string, headers map[string]string, body string, encoding string) (string, error) {
+func (o *SimpleHttp) Post(url string, headers map[string]string, body string, encoding string) (string, http.Header, error) {
 	var domain string
 	var start = strings.Index(url, "://")
 	if start < 0 {
@@ -87,7 +93,7 @@ func (o *SimpleHttp) Post(url string, headers map[string]string, body string, en
 
 	req, err := http.NewRequest("POST", url, bodyio)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	req.Header.Set("Host", domain)
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36")
@@ -104,9 +110,14 @@ func (o *SimpleHttp) Post(url string, headers map[string]string, body string, en
 		defer resp.Body.Close()
 		bytes, err := ioutil.ReadAll(resp.Body)
 		if err == nil {
-			content = string(bytes)
+			content = string(bytes[:])
+			encoding = strings.ToLower(encoding)
+			if encoding != "" && encoding != "utf-8" {
+				var encoder = mahonia.NewDecoder(encoding)
+				content = encoder.ConvertString(content)
+			}
 		}
 	}
 
-	return content, err
+	return content, resp.Header, err
 }
