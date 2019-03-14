@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type SimpleHttp struct {
@@ -25,7 +26,11 @@ func (o *SimpleHttp) SimplePost() {
 
 }
 
-func (o *SimpleHttp) Get(url string, headers map[string]string, encoding string) (string, http.Header, error) {
+func (o *SimpleHttp) Sleep(millisec int) {
+	time.Sleep(time.Millisecond * time.Duration(millisec))
+}
+
+func (o *SimpleHttp) Get(url string, headers map[string]string, encoding string) (string, *http.Response, error) {
 
 	var domain string
 	var start = strings.Index(url, "://")
@@ -68,10 +73,10 @@ func (o *SimpleHttp) Get(url string, headers map[string]string, encoding string)
 		}
 	}
 
-	return content, resp.Header, err
+	return content, resp, err
 }
 
-func (o *SimpleHttp) Post(url string, headers map[string]string, body string, encoding string) (string, http.Header, error) {
+func (o *SimpleHttp) Post(url string, headers map[string]string, body string, encoding string) (string, *http.Response, error) {
 	var domain string
 	var start = strings.Index(url, "://")
 	if start < 0 {
@@ -119,5 +124,5 @@ func (o *SimpleHttp) Post(url string, headers map[string]string, body string, en
 		}
 	}
 
-	return content, resp.Header, err
+	return content, resp, err
 }
