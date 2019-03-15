@@ -2,10 +2,12 @@ package qnet
 
 import (
 	"github.com/axgle/mahonia"
+	"github.com/camsiabor/qcom/util"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -28,6 +30,26 @@ func (o *SimpleHttp) SimplePost() {
 
 func (o *SimpleHttp) Sleep(millisec int) {
 	time.Sleep(time.Millisecond * time.Duration(millisec))
+}
+
+func (o *SimpleHttp) Gets(opts []map[string]interface{}) []map[string]interface{} {
+	var n = len(opts)
+	var waitgroup sync.WaitGroup
+	waitgroup.Add(n)
+	for i := 0; i < n; i++ {
+		go func(one map[string]interface{}) {
+			defer waitgroup.Done()
+			var url = util.AsStr(one["url"], "")
+			var headers = util.AsStringMap(one["headers"], false)
+			var encoding = util.AsStr(one["encoding"], "")
+			var content, response, err = o.Get(url, headers, encoding)
+			one["content"] = content
+			one["response"] = response
+			one["err"] = err
+		}(opts[i])
+	}
+	waitgroup.Wait()
+	return opts
 }
 
 func (o *SimpleHttp) Get(url string, headers map[string]string, encoding string) (string, *http.Response, error) {
