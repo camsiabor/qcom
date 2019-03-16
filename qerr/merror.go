@@ -42,3 +42,7 @@ func SimpleRecoverThen(skipStack int, callback func(err error)) {
 		callback(err)
 	}
 }
+
+func OhThereIsError() {
+	fmt.Println("here is error")
+}
