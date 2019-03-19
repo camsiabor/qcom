@@ -5,6 +5,7 @@ import (
 	"github.com/camsiabor/qcom/util"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"strings"
 	"sync"
@@ -12,16 +13,46 @@ import (
 )
 
 type SimpleHttp struct {
-	Client *http.Client
+	clients     []*http.Client
+	clientCount int
+	mutex       sync.RWMutex
 }
 
-var simpleHttpInstance = &SimpleHttp{
-	Client: &http.Client{},
-}
+var simpleHttpInstance = &SimpleHttp{}
 
 func GetSimpleHttp() *SimpleHttp {
-
 	return simpleHttpInstance
+}
+
+func (o *SimpleHttp) InitClients(count int, timeout int) {
+
+	if count <= 1 {
+		count = 2
+	}
+
+	rand.Seed(time.Now().UnixNano())
+
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+
+	o.clientCount = count
+	o.clients = make([]*http.Client, count)
+	for i := 0; i < o.clientCount; i++ {
+		var client = &http.Client{}
+		o.clients[i] = client
+		client.Timeout = time.Duration(timeout) * time.Second
+	}
+}
+
+func (o *SimpleHttp) GetClient() *http.Client {
+	if o.clients == nil {
+		o.InitClients(10, 15)
+	}
+	var index = rand.Int() % o.clientCount
+	o.mutex.RLock()
+	var client = o.clients[index]
+	o.mutex.RUnlock()
+	return client
 }
 
 func (o *SimpleHttp) SimplePost() {
@@ -81,7 +112,8 @@ func (o *SimpleHttp) Get(url string, headers map[string]string, encoding string)
 	}
 
 	var content string
-	resp, err := o.Client.Do(req)
+	var client = o.GetClient()
+	resp, err := client.Do(req)
 	if err == nil {
 		defer resp.Body.Close()
 		bytes, err := ioutil.ReadAll(resp.Body)
@@ -132,7 +164,8 @@ func (o *SimpleHttp) Post(url string, headers map[string]string, body string, en
 	}
 
 	var content string
-	resp, err := o.Client.Do(req)
+	var client = o.GetClient()
+	resp, err := client.Do(req)
 	if err == nil {
 		defer resp.Body.Close()
 		bytes, err := ioutil.ReadAll(resp.Body)
