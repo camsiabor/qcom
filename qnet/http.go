@@ -1,8 +1,10 @@
 package qnet
 
 import (
+	"fmt"
 	"github.com/axgle/mahonia"
 	"github.com/camsiabor/qcom/util"
+	gorilla "github.com/gorilla/http"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -13,9 +15,11 @@ import (
 )
 
 type SimpleHttp struct {
-	clients     []*http.Client
-	clientCount int
-	mutex       sync.RWMutex
+	stds         []*http.Client
+	gorillas     []*gorilla.Client
+	stdCount     int
+	gorillaCount int
+	mutex        sync.RWMutex
 }
 
 var simpleHttpInstance = &SimpleHttp{}
@@ -24,7 +28,7 @@ func GetSimpleHttp() *SimpleHttp {
 	return simpleHttpInstance
 }
 
-func (o *SimpleHttp) InitClients(count int, timeout int) {
+func (o *SimpleHttp) InitClients(t string, count int, timeout int) {
 
 	if count <= 1 {
 		count = 2
@@ -35,24 +39,43 @@ func (o *SimpleHttp) InitClients(count int, timeout int) {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 
-	o.clientCount = count
-	o.clients = make([]*http.Client, count)
-	for i := 0; i < o.clientCount; i++ {
-		var client = &http.Client{}
-		o.clients[i] = client
-		client.Timeout = time.Duration(timeout) * time.Second
+	if t == "std" {
+		o.stdCount = count
+		o.stds = make([]*http.Client, count)
+		for i := 0; i < o.stdCount; i++ {
+			var client = &http.Client{}
+			o.stds[i] = client
+			client.Timeout = time.Duration(timeout) * time.Second
+		}
+	} else {
+		o.gorillaCount = count
+		o.gorillas = make([]*gorilla.Client, count)
+		for i := 0; i < o.gorillaCount; i++ {
+			var client = &gorilla.Client{}
+			o.gorillas[i] = client
+		}
 	}
+
 }
 
-func (o *SimpleHttp) GetClient() *http.Client {
-	if o.clients == nil {
-		o.InitClients(10, 15)
+func (o *SimpleHttp) GetClient(t string) interface{} {
+	if o.stds == nil {
+		o.InitClients("std", 22, 15)
 	}
-	var index = rand.Int() % o.clientCount
+	if o.gorillas == nil {
+		o.InitClients("gorilla", 22, 15)
+	}
+	var r interface{}
 	o.mutex.RLock()
-	var client = o.clients[index]
+	if t == "std" {
+		var index = rand.Int() % o.stdCount
+		r = o.stds[index]
+	} else {
+		var index = rand.Int() % o.gorillaCount
+		r = o.gorillas[index]
+	}
 	o.mutex.RUnlock()
-	return client
+	return r
 }
 
 func (o *SimpleHttp) SimplePost() {
@@ -63,7 +86,7 @@ func (o *SimpleHttp) Sleep(millisec int) {
 	time.Sleep(time.Millisecond * time.Duration(millisec))
 }
 
-func (o *SimpleHttp) Gets(opts []map[string]interface{}) []map[string]interface{} {
+func (o *SimpleHttp) Gets(t string, opts []map[string]interface{}) []map[string]interface{} {
 	var n = len(opts)
 	var waitgroup sync.WaitGroup
 	waitgroup.Add(n)
@@ -73,7 +96,7 @@ func (o *SimpleHttp) Gets(opts []map[string]interface{}) []map[string]interface{
 			var url = util.AsStr(one["url"], "")
 			var headers = util.AsStringMap(one["headers"], false)
 			var encoding = util.AsStr(one["encoding"], "")
-			var content, response, err = o.Get(url, headers, encoding)
+			var content, response, err = o.Get(t, url, headers, encoding)
 			one["content"] = content
 			one["response"] = response
 			one["err"] = err
@@ -83,7 +106,48 @@ func (o *SimpleHttp) Gets(opts []map[string]interface{}) []map[string]interface{
 	return opts
 }
 
-func (o *SimpleHttp) Get(url string, headers map[string]string, encoding string) (string, *http.Response, error) {
+func (o *SimpleHttp) Get(t string, url string, headers map[string]string, encoding string) (string, interface{}, error) {
+	if t == "std" {
+		return o.StdGet(url, headers, encoding)
+	} else {
+		return o.GorillaGet(url, headers, encoding)
+	}
+}
+
+func (o *SimpleHttp) GorillaGet(url string, headers map[string]string, encoding string) (string, interface{}, error) {
+
+	var gheaders map[string][]string
+	if headers != nil {
+		gheaders = make(map[string][]string)
+		for k, v := range headers {
+			var one = make([]string, 1)
+			one[0] = v
+			gheaders[k] = one
+		}
+	}
+	var client = gorilla.DefaultClient // o.GetClient("gorilla").(*gorilla.Client)
+	var status, respheaders, reader, err = client.Get(url, gheaders)
+	if err != nil {
+		return "", respheaders, err
+	}
+	if status.Code != 200 {
+		return "", respheaders, fmt.Errorf("response status %v", status)
+	}
+	defer reader.Close()
+	bytes, err := ioutil.ReadAll(reader)
+	var content string
+	if err == nil {
+		content = string(bytes[:])
+		encoding = strings.ToLower(encoding)
+		if encoding != "" && encoding != "utf-8" {
+			var encoder = mahonia.NewDecoder(encoding)
+			content = encoder.ConvertString(content)
+		}
+	}
+	return content, respheaders, err
+}
+
+func (o *SimpleHttp) StdGet(url string, headers map[string]string, encoding string) (string, interface{}, error) {
 
 	var domain string
 	var start = strings.Index(url, "://")
@@ -112,7 +176,7 @@ func (o *SimpleHttp) Get(url string, headers map[string]string, encoding string)
 	}
 
 	var content string
-	var client = o.GetClient()
+	var client = o.GetClient("std").(*http.Client)
 	resp, err := client.Do(req)
 	if err == nil {
 		defer resp.Body.Close()
@@ -164,7 +228,7 @@ func (o *SimpleHttp) Post(url string, headers map[string]string, body string, en
 	}
 
 	var content string
-	var client = o.GetClient()
+	var client = o.GetClient("std").(*http.Client)
 	resp, err := client.Do(req)
 	if err == nil {
 		defer resp.Body.Close()
