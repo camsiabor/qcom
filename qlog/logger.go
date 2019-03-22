@@ -25,6 +25,7 @@ const CODEINFO = 1000
 var LEVELSTRS = [6]string{"VERBOSE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"}
 
 type Logi struct {
+	key      string
 	today    *time.Time
 	todayday int
 	writers  []io.WriteCloser
@@ -42,6 +43,7 @@ type Logi struct {
 
 var _loggerManager = &LogManager{
 	def: &Logi{
+		key:        "",
 		Dir:        "log",
 		FileSuffix: ".log",
 		Level:      INFO,
@@ -53,6 +55,7 @@ var _loggerManager = &LogManager{
 
 type LogManager struct {
 	def     *Logi
+	mutex   sync.RWMutex
 	loggers map[string]*Logi
 }
 
@@ -68,15 +71,70 @@ func (o *LogManager) Get(key string) *Logi {
 	if len(key) == 0 {
 		return o.def
 	}
-	return o.loggers[key]
+	o.mutex.RLock()
+	var logger = o.loggers[key]
+	o.mutex.Unlock()
+	return logger
 }
 
 func (o *LogManager) Set(key string, logi *Logi) {
 	if len(key) == 0 {
 		o.def = logi
 	}
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
 	o.loggers[key] = logi
 }
+
+func (o *LogManager) New(key string, dir string, prefix string, suffix string, level string, stdout bool, logflag int) *Logi {
+	var logger = o.Get(key)
+	if logger != nil {
+		return logger
+	}
+	var inst = &Logi{}
+	inst.key = key
+	inst.Dir = dir
+	inst.FilePrefix = prefix
+	inst.FileSuffix = suffix
+	inst.Level = o.LevelInt(level)
+	inst.ToStdout = stdout
+	if inst.FileSuffix == "" {
+		inst.FileSuffix = ".log"
+	}
+	if logflag > 0 {
+		inst.LogFlag = logflag
+	}
+	o.Set(key, inst)
+	return inst
+}
+
+func (o *LogManager) LevelStr(level int) string {
+	if level < 0 || level >= len(LEVELSTRS) {
+		return "VERBOSE"
+	}
+	return LEVELSTRS[level]
+}
+
+func (o *LogManager) LevelInt(level string) int {
+	level = strings.ToLower(level)
+	switch level {
+	case "verbose":
+		return VERBOSE
+	case "debug":
+		return DEBUG
+	case "info":
+		return INFO
+	case "warn":
+		return WARN
+	case "error":
+		return ERROR
+	case "fatal":
+		return FATAL
+	}
+	return VERBOSE
+}
+
+/* ===================================== Logi ======================================= */
 
 func (o *Logi) Destroy() {
 	o.lock.Lock()
@@ -245,32 +303,6 @@ func (o *Logi) Log(level int, v ...interface{}) {
 	o.LogEx(level, 2, v...)
 }
 
-func (o *Logi) LevelStr(level int) string {
-	if level < 0 || level >= len(LEVELSTRS) {
-		return "VERBOSE"
-	}
-	return LEVELSTRS[level]
-}
-
-func (o *Logi) LevelInt(level string) int {
-	level = strings.ToLower(level)
-	switch level {
-	case "verbose":
-		return VERBOSE
-	case "debug":
-		return DEBUG
-	case "info":
-		return INFO
-	case "warn":
-		return WARN
-	case "error":
-		return ERROR
-	case "fatal":
-		return FATAL
-	}
-	return VERBOSE
-}
-
 func LogEx(level int, stackSkip int, v ...interface{}) {
 	_loggerManager.def.LogEx(level, stackSkip, v...)
 }
@@ -284,9 +316,9 @@ func Log(level int, v ...interface{}) {
 }
 
 func LevelInt(level string) int {
-	return _loggerManager.def.LevelInt(level)
+	return _loggerManager.LevelInt(level)
 }
 
 func LevelStr(level int) string {
-	return _loggerManager.def.LevelStr(level)
+	return _loggerManager.LevelStr(level)
 }
