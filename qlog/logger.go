@@ -22,10 +22,10 @@ const FATAL = 5
 const TRACE = 100
 const CODEINFO = 1000
 
-var LevelStr = [6]string{"VERBOSE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"}
+var LEVELSTRS = [6]string{"VERBOSE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"}
 
 type Logi struct {
-	today    time.Time
+	today    *time.Time
 	todayday int
 	writers  []io.WriteCloser
 	agents   []*log.Logger
@@ -138,6 +138,33 @@ func (o *Logi) AddWriter(writer io.WriteCloser, prefix string, flag int, lock bo
 	}
 }
 
+func (o *Logi) InitWriter(today *time.Time) {
+	o.lock.Lock()
+	defer o.lock.Unlock()
+	if o.writers != nil {
+		return
+	}
+	o.agents = nil
+
+	o.today = today
+	o.todayday = today.Day()
+	var filename = o.FilePrefix + today.Format("20060102") + o.FileSuffix
+	var filepath = o.Dir + "/" + filename
+	if err := os.MkdirAll("log", 0774); err != nil {
+		panic(err)
+	}
+
+	var file, err = os.OpenFile(filepath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+	if err != nil {
+		panic(err)
+	}
+
+	o.AddWriter(file, o.LogPrefix, o.LogFlag, false)
+	if o.ToStdout {
+		o.AddWriter(os.Stdout, o.LogPrefix, o.LogFlag, false)
+	}
+}
+
 func (o *Logi) LogEx(level int, stackSkip int, v ...interface{}) {
 	var trace = o.Level >= TRACE
 	if trace {
@@ -160,57 +187,34 @@ func (o *Logi) LogEx(level int, stackSkip int, v ...interface{}) {
 	}
 
 	if o.writers == nil {
-		func() {
-			o.lock.Lock()
-			defer o.lock.Unlock()
-			if o.writers != nil {
-				return
-			}
-			o.agents = nil
-
-			o.today = today
-			o.todayday = today.Day()
-			var filename = o.FilePrefix + today.Format("20060102") + o.FileSuffix
-			var filepath = o.Dir + "/" + filename
-			if err := os.MkdirAll("log", 0774); err != nil {
-				panic(err)
-			}
-
-			var file, err = os.OpenFile(filepath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
-			if err != nil {
-				panic(err)
-			}
-
-			o.AddWriter(file, o.LogPrefix, o.LogFlag, false)
-			if o.ToStdout {
-				o.AddWriter(os.Stdout, o.LogPrefix, o.LogFlag, false)
-			}
-
-		}()
-
+		o.InitWriter(&today)
 	}
-	var levelstr = LevelStr[level]
+	var levelstr = LEVELSTRS[level]
 
-	var linenum = 0
-	var filename = ""
-	var funcname = ""
 	var stackstr = ""
-	var pc uintptr
+	var line = ""
+	var vs = util.SliceToString(" ", v...)
+	if stackSkip >= 0 {
+		var linenum = 0
+		var filename = ""
+		var funcname = ""
+		var pc uintptr
+		pc, filename, linenum, _ = runtime.Caller(stackSkip)
+		var slashindex = strings.LastIndex(filename, "/")
+		filename = filename[slashindex+1:]
+		funcname = runtime.FuncForPC(pc).Name()
 
-	pc, filename, linenum, _ = runtime.Caller(stackSkip)
-	var slashindex = strings.LastIndex(filename, "/")
-	filename = filename[slashindex+1:]
-	funcname = runtime.FuncForPC(pc).Name()
-
-	if trace {
-		// adjust buffer size to be larger than expected stack
-		var bytes = make([]byte, 8192)
-		var stack = runtime.Stack(bytes, false)
-		stackstr = string(bytes[:stack])
+		if trace {
+			// adjust buffer size to be larger than expected stack
+			var bytes = make([]byte, 8192)
+			var stack = runtime.Stack(bytes, false)
+			stackstr = string(bytes[:stack])
+		}
+		line = fmt.Sprintf("%s %s %d %s   %s", levelstr, filename, linenum, funcname, vs)
+	} else {
+		line = fmt.Sprintf("%s   %s", levelstr, vs)
 	}
 
-	var vs = util.SliceToString(" ", v...)
-	var line = fmt.Sprintf("%s %s %d %s   %s", levelstr, filename, linenum, funcname, vs)
 	o.Print(line, stackstr)
 }
 
@@ -241,6 +245,32 @@ func (o *Logi) Log(level int, v ...interface{}) {
 	o.LogEx(level, 2, v...)
 }
 
+func (o *Logi) LevelStr(level int) string {
+	if level < 0 || level >= len(LEVELSTRS) {
+		return "VERBOSE"
+	}
+	return LEVELSTRS[level]
+}
+
+func (o *Logi) LevelInt(level string) int {
+	level = strings.ToLower(level)
+	switch level {
+	case "verbose":
+		return VERBOSE
+	case "debug":
+		return DEBUG
+	case "info":
+		return INFO
+	case "warn":
+		return WARN
+	case "error":
+		return ERROR
+	case "fatal":
+		return FATAL
+	}
+	return VERBOSE
+}
+
 func LogEx(level int, stackSkip int, v ...interface{}) {
 	_loggerManager.def.LogEx(level, stackSkip, v...)
 }
@@ -251,4 +281,12 @@ func Error(stackSkip int, v ...interface{}) {
 
 func Log(level int, v ...interface{}) {
 	_loggerManager.def.LogEx(level, 2, v...)
+}
+
+func LevelInt(level string) int {
+	return _loggerManager.def.LevelInt(level)
+}
+
+func LevelStr(level int) string {
+	return _loggerManager.def.LevelStr(level)
 }
