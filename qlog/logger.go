@@ -73,7 +73,7 @@ func (o *LogManager) Get(key string) *Logi {
 	}
 	o.mutex.RLock()
 	var logger = o.loggers[key]
-	o.mutex.Unlock()
+	o.mutex.RUnlock()
 	return logger
 }
 
@@ -207,6 +207,12 @@ func (o *Logi) InitWriter(today *time.Time) {
 	if o.writers != nil {
 		return
 	}
+
+	if today == nil {
+		var todaystruct = time.Now()
+		today = &todaystruct
+	}
+
 	o.agents = nil
 
 	o.today = today
