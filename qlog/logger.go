@@ -28,7 +28,7 @@ type Logi struct {
 	key      string
 	today    *time.Time
 	todayday int
-	writers  []io.WriteCloser
+	writers  []io.Writer
 	agents   []*log.Logger
 	//logChannel chan * string;
 	lock       sync.RWMutex
@@ -136,14 +136,19 @@ func (o *LogManager) LevelInt(level string) int {
 
 /* ===================================== Logi ======================================= */
 
-func (o *Logi) Destroy() {
-	o.lock.Lock()
-	defer o.lock.Unlock()
+func (o *Logi) Destroy(lock bool) {
+	if lock {
+		o.lock.Lock()
+		defer o.lock.Unlock()
+	}
 	if o.writers != nil {
 		for _, writer := range o.writers {
 			if writer != nil {
 				if writer != os.Stdout && writer != os.Stderr {
-					writer.Close()
+					var closer, ok = writer.(io.Closer)
+					if ok {
+						closer.Close()
+					}
 				}
 			}
 		}
@@ -153,7 +158,7 @@ func (o *Logi) Destroy() {
 	o.agents = nil
 }
 
-func (o *Logi) AddWriter(writer io.WriteCloser, prefix string, flag int, lock bool) {
+func (o *Logi) AddWriter(writer io.Writer, prefix string, flag int, lock bool) {
 	if writer != nil {
 		if flag <= 0 {
 			flag = o.LogFlag
@@ -166,7 +171,7 @@ func (o *Logi) AddWriter(writer io.WriteCloser, prefix string, flag int, lock bo
 			defer o.lock.Unlock()
 		}
 		if o.writers == nil {
-			o.writers = make([]io.WriteCloser, 1)
+			o.writers = make([]io.Writer, 1)
 		}
 		if o.agents == nil {
 			o.agents = make([]*log.Logger, 1)
@@ -223,6 +228,17 @@ func (o *Logi) InitWriter(today *time.Time) {
 	}
 }
 
+func (o *Logi) SetWriters(writers []io.Writer) {
+	o.lock.Lock()
+	defer o.lock.Unlock()
+	if o.writers != nil {
+		o.Destroy(false)
+	}
+	for _, writer := range writers {
+		o.AddWriter(writer, "", o.LogFlag, false)
+	}
+}
+
 func (o *Logi) LogEx(level int, stackSkip int, v ...interface{}) {
 	var trace = o.Level >= TRACE
 	if trace {
@@ -241,7 +257,7 @@ func (o *Logi) LogEx(level int, stackSkip int, v ...interface{}) {
 	var todayday = today.Day()
 
 	if todayday != o.todayday {
-		o.Destroy()
+		o.Destroy(true)
 	}
 
 	if o.writers == nil {
