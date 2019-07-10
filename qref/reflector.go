@@ -86,8 +86,35 @@ func FuncInfo(f interface{}) *runtime.Func {
 	return runtime.FuncForPC(pointer)
 }
 
+func StackStringErr(err interface{}, skip int) string {
+	var errmsg = ""
+	if err != nil {
+		terr, ok := err.(error)
+		if ok {
+			errmsg = terr.Error()
+		} else {
+			errmsg = fmt.Sprintf("%v", err)
+		}
+		errmsg = errmsg + "\n"
+	}
+
+	return errmsg + StackString(skip+1)
+}
+
+func StackString(skip int) string {
+	var pc, filename, linenum, _ = runtime.Caller(skip + 1)
+	var slashindex = strings.LastIndex(filename, "/")
+	filename = filename[slashindex+1:]
+	var funcname = runtime.FuncForPC(pc).Name()
+	// adjust buffer size to be larger than expected stack
+	var bytes = make([]byte, 8192)
+	var stack = runtime.Stack(bytes, false)
+	var stackstr = string(bytes[:stack])
+	return fmt.Sprintf("%s %s %d\n%s", filename, funcname, linenum, stackstr)
+}
+
 func StackInfo(skip int) map[string]interface{} {
-	var pc, filename, linenum, _ = runtime.Caller(skip)
+	var pc, filename, linenum, _ = runtime.Caller(skip + 1)
 	var slashindex = strings.LastIndex(filename, "/")
 	filename = filename[slashindex+1:]
 	var funcname = runtime.FuncForPC(pc).Name()
