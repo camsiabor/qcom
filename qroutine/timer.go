@@ -23,7 +23,7 @@ func (o *Timer) Start(delay time.Duration, interval time.Duration, routine Timer
 	if routine == nil {
 		panic("no routine is set")
 	}
-	if o.channel != nil {
+	if o.looping {
 		return fmt.Errorf("already running")
 	}
 	o.channel = make(chan bool, 8)
