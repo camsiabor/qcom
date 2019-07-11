@@ -9,7 +9,7 @@ import (
 	"reflect"
 )
 
-func ConfigLoad(filepath string, includename string ) (config map[string]interface{}, err error) {
+func ConfigLoad(filepath string, includename string) (config map[string]interface{}, err error) {
 
 	var configfile *os.File
 	configfile, err = os.Open(filepath)
@@ -18,25 +18,25 @@ func ConfigLoad(filepath string, includename string ) (config map[string]interfa
 	if err != nil {
 		return nil, err
 	}
-	config = make(map[string]interface{});
+	config = make(map[string]interface{})
 	var decoder = json.NewDecoder(configfile)
 	err = decoder.Decode(&config)
 	if err != nil {
 		return nil, err
 	}
 
-	if (len(includename) > 0) {
-		var includes= util.GetMap(config, false, includename);
-		if (includes != nil) {
+	if len(includename) > 0 {
+		var includes = util.GetMap(config, false, includename)
+		if includes != nil {
 			for key, val := range includes {
-				if (val == nil) {
-					continue;
+				if val == nil {
+					continue
 				}
-				var sval, ok= val.(string);
-				if (ok) {
+				var sval, ok = val.(string)
+				if ok {
 					subconfig, _ := ConfigLoad(sval, includename)
-					if (subconfig != nil) {
-						config[key] = subconfig;
+					if subconfig != nil {
+						config[key] = subconfig
 					}
 				}
 			}
@@ -45,7 +45,6 @@ func ConfigLoad(filepath string, includename string ) (config map[string]interfa
 
 	return config, err
 }
-
 
 func ConfigParse(path string) (config map[string]interface{}, err error) {
 	file, err := os.Open(path) // For read access.
@@ -60,7 +59,6 @@ func ConfigParse(path string) (config map[string]interface{}, err error) {
 	err = json.Unmarshal(data, &config)
 	return config, err
 }
-
 
 // Useful for command line to override options specified in config file
 // Debug is not updated.

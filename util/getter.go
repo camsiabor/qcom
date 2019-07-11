@@ -453,11 +453,7 @@ func AsError(o interface{}) error {
 	if ok {
 		return e
 	}
-	var s = AsStr(o, "")
-	if len(s) > 0 {
-		return errors.New(s)
-	}
-	return nil
+	return fmt.Errorf("%v", o)
 }
 
 func AsTime(o interface{}, def *time.Time) (t *time.Time) {
