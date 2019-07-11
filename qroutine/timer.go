@@ -14,11 +14,15 @@ type Timer struct {
 	delay    time.Duration
 	interval time.Duration
 
+	looping bool
 	channel chan bool
 	Context interface{}
 }
 
 func (o *Timer) Start(delay time.Duration, interval time.Duration, routine TimerRoutine) error {
+	if routine == nil {
+		panic("no routine is set")
+	}
 	if o.channel != nil {
 		return fmt.Errorf("already running")
 	}
@@ -31,10 +35,14 @@ func (o *Timer) Start(delay time.Duration, interval time.Duration, routine Timer
 	if o.interval < 0 {
 		o.interval = 0
 	}
+	o.routine = routine
+	o.looping = true
+	go o.loop()
 	return nil
 }
 
 func (o *Timer) Stop() {
+	o.looping = false
 	if o.channel != nil {
 		o.channel <- false
 		close(o.channel)
@@ -49,23 +57,22 @@ func (o *Timer) Wake() {
 }
 
 func (o *Timer) loop() {
-	var looping = true
 	var sand <-chan time.Time
-	for looping {
+	for o.looping {
 
 		if o.delay > 0 {
 			sand = time.After(o.delay)
 			select {
 			case docontinue, ok := <-o.channel:
 				if !docontinue || !ok {
-					looping = false
+					o.looping = false
 				}
 			case <-sand:
 			}
 			o.delay = 0
 		}
 
-		if !looping {
+		if !o.looping {
 			break
 		}
 
@@ -76,7 +83,7 @@ func (o *Timer) loop() {
 			select {
 			case docontinue, ok := <-o.channel:
 				if !docontinue || !ok {
-					looping = false
+					o.looping = false
 				}
 			case <-sand:
 			}
