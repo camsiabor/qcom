@@ -1,9 +1,16 @@
 package util
 
 import (
+	"fmt"
 	"reflect"
 	"time"
 )
+
+type Result struct {
+	Value     interface{}
+	Error     error
+	Timeouted bool
+}
 
 func Timeout(channel interface{}, timeout time.Duration) (chosen int, recv reflect.Value, recvok bool) {
 
@@ -42,4 +49,35 @@ func Timeouts(channels []interface{}, timeout time.Duration) (chosen int, recv r
 		chosen = -1
 	}
 	return chosen, recv, recvok
+}
+
+func Wait(timeout time.Duration, routine func() (interface{}, error), finally func(interface{}, error, bool)) (interface{}, error) {
+
+	var result = &Result{}
+	result.Timeouted = false
+
+	if finally != nil {
+		defer finally(result.Value, result.Error, result.Timeouted)
+	}
+
+	var timer = time.After(timeout)
+	var channel = make(chan *Result)
+	go func() {
+		defer func() {
+			var pan = recover()
+			if pan != nil {
+				result.Error = AsError(pan)
+			}
+			channel <- result
+		}()
+		result.Value, result.Error = routine()
+	}()
+
+	select {
+	case <-timer:
+		result.Timeouted = true
+		return nil, fmt.Errorf("timeout")
+	case <-channel:
+		return result.Value, result.Error
+	}
 }
