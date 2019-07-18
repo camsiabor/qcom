@@ -76,7 +76,8 @@ func Wait(timeout time.Duration, routine func() (interface{}, error), finally fu
 	select {
 	case <-timer:
 		result.Timeouted = true
-		return nil, fmt.Errorf("timeout")
+		result.Error = fmt.Errorf("timeout")
+		return result.Value, result.Error
 	case <-channel:
 		return result.Value, result.Error
 	}
