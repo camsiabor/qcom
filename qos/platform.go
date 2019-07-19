@@ -22,3 +22,7 @@ func (o *info) GOROOT() string {
 func (o *info) Version() string {
 	return runtime.Version()
 }
+
+func SetMaxCPU() {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+}
