@@ -34,7 +34,10 @@ func NewBuffer(bufferType BufferType) *Buffer {
 		for _, dir := range dirs {
 			buffer.bufferFile, err = ioutil.TempFile(dir, "buffer")
 			if err != nil {
-				os.Mkdir(dir, 0664)
+				err = os.Mkdir(dir, 0664)
+				if err != nil {
+					return nil
+				}
 				buffer.bufferFile, err = ioutil.TempFile("temp", "buffer")
 			}
 		}
@@ -80,10 +83,14 @@ func (o *Buffer) Bytes() ([]byte, error) {
 		}
 		n, err := o.bufferFile.Seek(0, 2)
 		if err == nil {
-			var bytes = make([]byte, n)
-			o.bufferFile.Seek(0, 0)
-			_, err := o.bufferFile.Read(bytes)
-			return bytes, err
+
+			_, err = o.bufferFile.Seek(0, 0)
+			if err != nil {
+				return err
+			}
+			var data = make([]byte, n)
+			_, err := o.bufferFile.Read(data)
+			return data, err
 		} else {
 			return nil, err
 		}
@@ -95,6 +102,6 @@ func (o *Buffer) Close() {
 		o.bufferMemory.Reset()
 	} else {
 		defer os.Remove(o.bufferFileName)
-		o.bufferFile.Close()
+		_ = o.bufferFile.Close()
 	}
 }
