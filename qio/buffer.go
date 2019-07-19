@@ -86,7 +86,7 @@ func (o *Buffer) Bytes() ([]byte, error) {
 
 			_, err = o.bufferFile.Seek(0, 0)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			var data = make([]byte, n)
 			_, err := o.bufferFile.Read(data)
