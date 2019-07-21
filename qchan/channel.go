@@ -1,7 +1,9 @@
-package util
+package qchan
 
 import (
 	"fmt"
+	"github.com/camsiabor/qcom/qref"
+	"github.com/camsiabor/qcom/util"
 	"reflect"
 	"time"
 )
@@ -10,6 +12,7 @@ type Result struct {
 	Value     interface{}
 	Error     error
 	Timeouted bool
+	Cut       *qref.StackCut
 }
 
 func Timeout(channel interface{}, timeout time.Duration) (chosen int, recv reflect.Value, recvok bool) {
@@ -51,7 +54,8 @@ func Timeouts(channels []interface{}, timeout time.Duration) (chosen int, recv r
 	return chosen, recv, recvok
 }
 
-func Wait(timeout time.Duration, routine func() (interface{}, error), finally func(interface{}, error, bool)) (interface{}, error) {
+func Wait(timeout time.Duration, stacktrace bool,
+	routine func() (interface{}, error), finally func(interface{}, error, bool)) (interface{}, *qref.StackCut, error) {
 
 	var result = &Result{}
 	result.Timeouted = false
@@ -66,7 +70,10 @@ func Wait(timeout time.Duration, routine func() (interface{}, error), finally fu
 		defer func() {
 			var pan = recover()
 			if pan != nil {
-				result.Error = AsError(pan)
+				if stacktrace {
+					result.Cut = qref.StackCutting(1)
+				}
+				result.Error = util.AsError(pan)
 			}
 			channel <- result
 		}()
@@ -77,8 +84,8 @@ func Wait(timeout time.Duration, routine func() (interface{}, error), finally fu
 	case <-timer:
 		result.Timeouted = true
 		result.Error = fmt.Errorf("timeout")
-		return result.Value, result.Error
+		return result.Value, result.Cut, result.Error
 	case <-channel:
-		return result.Value, result.Error
+		return result.Value, result.Cut, result.Error
 	}
 }
