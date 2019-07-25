@@ -145,6 +145,49 @@ func AsInt(o interface{}, defaultval int) (r int) {
 	panic(fmt.Errorf("convert not support type %v value %v ", reflect.TypeOf(o), reflect.ValueOf(o)))
 }
 
+func AsUInt32(o interface{}, defaultval uint32) (r uint32) {
+	if o == nil {
+		return defaultval
+	}
+	var vref = reflect.ValueOf(o)
+	var kind = vref.Kind()
+	switch kind {
+	case reflect.Uint32:
+		return o.(uint32)
+	case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int:
+		return uint32(vref.Int())
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint64:
+		return uint32(vref.Uint())
+	case reflect.Float32, reflect.Float64:
+		return uint32(vref.Float())
+	case reflect.Bool:
+		var b = o.(bool)
+		if b {
+			return 1
+		} else {
+			return 0
+		}
+	case reflect.String:
+		var s = o.(string)
+		var i64, err = strconv.ParseInt(s, 10, 64)
+		if err != nil {
+			return defaultval
+		}
+		return uint32(i64)
+	}
+
+	switch o.(type) {
+	case time.Time:
+		var t = o.(time.Time)
+		return uint32(t.Unix())
+	case *time.Time:
+		var t = o.(*time.Time)
+		return uint32(t.Unix())
+	}
+
+	panic(fmt.Errorf("convert not support type %v value %v ", reflect.TypeOf(o), reflect.ValueOf(o)))
+}
+
 func AsInt64(o interface{}, defaultval int64) (r int64) {
 
 	if o == nil {
