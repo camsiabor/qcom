@@ -41,6 +41,9 @@ func AsStr(o interface{}, defaultval string) (r string) {
 	}
 
 	switch o.(type) {
+	case error:
+		var err = o.(error)
+		return err.Error()
 	case time.Time:
 		var t = o.(time.Time)
 		return t.Format("2006-01-02 15:04:05")

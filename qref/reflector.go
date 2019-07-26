@@ -6,15 +6,7 @@ import (
 	"github.com/camsiabor/qcom/util"
 	"reflect"
 	"runtime"
-	"strings"
 )
-
-type StackCut struct {
-	Func  string
-	Line  int
-	File  string
-	Stack []byte
-}
 
 type ReflectDelegate interface {
 	Delegate() interface{}
@@ -91,70 +83,6 @@ func ReflectValuesToList(rvals []reflect.Value) []interface{} {
 func FuncInfo(f interface{}) *runtime.Func {
 	var pointer = reflect.ValueOf(f).Pointer()
 	return runtime.FuncForPC(pointer)
-}
-
-func StackStringErr(err interface{}, skip int) string {
-	var errmsg = ""
-	if err != nil {
-		terr, ok := err.(error)
-		if ok {
-			errmsg = terr.Error()
-		} else {
-			errmsg = fmt.Sprintf("%v", err)
-		}
-		errmsg = errmsg + "\n"
-	}
-
-	return errmsg + StackString(skip+1)
-}
-
-func StackString(skip int) string {
-	var pc, filename, linenum, _ = runtime.Caller(skip + 1)
-	var slashindex = strings.LastIndex(filename, "/")
-	filename = filename[slashindex+1:]
-	var funcname = runtime.FuncForPC(pc).Name()
-	// adjust buffer size to be larger than expected stack
-	var bytes = make([]byte, 8192)
-	var stack = runtime.Stack(bytes, false)
-	var stackstr = string(bytes[:stack])
-	return fmt.Sprintf("%s %s %d\n%s", filename, funcname, linenum, stackstr)
-}
-
-func StackCutting(skip int) *StackCut {
-	var pc, filename, linenum, _ = runtime.Caller(skip + 1)
-	var slashindex = strings.LastIndex(filename, "/")
-	filename = filename[slashindex+1:]
-	var funcname = runtime.FuncForPC(pc).Name()
-	// adjust buffer size to be larger than expected stack
-	var bytes = make([]byte, 16*1024)
-	var stacklen = runtime.Stack(bytes, false)
-
-	return &StackCut{
-		Func:  funcname,
-		Line:  linenum,
-		File:  filename,
-		Stack: bytes[:stacklen],
-	}
-
-}
-
-func StackInfo(skip int) map[string]interface{} {
-	var pc, filename, linenum, _ = runtime.Caller(skip + 1)
-	var slashindex = strings.LastIndex(filename, "/")
-	filename = filename[slashindex+1:]
-	var funcname = runtime.FuncForPC(pc).Name()
-	// adjust buffer size to be larger than expected stack
-	var bytes = make([]byte, 16*1024)
-	var stacklen = runtime.Stack(bytes, false)
-	var stackstr = string(bytes[:stacklen])
-
-	var r = make(map[string]interface{})
-	r["func"] = funcname
-	r["line"] = linenum
-	r["file"] = filename
-	r["stack"] = stackstr
-	return r
-
 }
 
 func IsMapOrStruct(v interface{}) bool {

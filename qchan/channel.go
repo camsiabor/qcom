@@ -2,7 +2,7 @@ package qchan
 
 import (
 	"fmt"
-	"github.com/camsiabor/qcom/qref"
+	"github.com/camsiabor/qcom/qerr"
 	"github.com/camsiabor/qcom/util"
 	"reflect"
 	"time"
@@ -12,7 +12,7 @@ type Result struct {
 	Value     interface{}
 	Error     error
 	Timeouted bool
-	Cut       *qref.StackCut
+	Cut       *qerr.StackCut
 }
 
 func Timeout(channel interface{}, timeout time.Duration) (chosen int, recv reflect.Value, recvok bool) {
@@ -55,7 +55,7 @@ func Timeouts(channels []interface{}, timeout time.Duration) (chosen int, recv r
 }
 
 func Wait(timeout time.Duration, stacktrace bool,
-	routine func() (interface{}, error), finally func(interface{}, error, bool)) (interface{}, *qref.StackCut, error) {
+	routine func() (interface{}, error), finally func(interface{}, error, bool)) (interface{}, *qerr.StackCut, error) {
 
 	var result = &Result{}
 	result.Timeouted = false
@@ -71,7 +71,7 @@ func Wait(timeout time.Duration, stacktrace bool,
 			var pan = recover()
 			if pan != nil {
 				if stacktrace {
-					result.Cut = qref.StackCutting(1)
+					result.Cut = qerr.StackCutting(1, 1024)
 				}
 				result.Error = util.AsError(pan)
 			}
