@@ -13,14 +13,18 @@ type StackCut struct {
 	Stack []byte
 }
 
-func StackStringErr(msg string, skip int, stackline int) error {
-	return fmt.Errorf(StackString(msg, skip+1, stackline))
+func StackStringErr(skip int, stackline int, msg string, args ...interface{}) error {
+	return fmt.Errorf(StackString(skip+1, stackline, msg, args...))
 
 }
 
-func StackString(msg string, skip int, stackline int) string {
+func StackString(skip int, stackline int, msg string, args ...interface{}) string {
 	if len(msg) > 0 {
-		msg = msg + " | "
+		if args == nil || len(args) == 0 {
+			msg = msg + " | "
+		} else {
+			msg = fmt.Sprintf(msg+" | ", args...)
+		}
 	}
 	var cut = StackCutting(skip+1, stackline)
 	if cut.Stack == nil {
