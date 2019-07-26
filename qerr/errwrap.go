@@ -15,6 +15,17 @@ type StackCut struct {
 
 func StackStringErr(skip int, stackline int, msg string, args ...interface{}) error {
 	return fmt.Errorf(StackString(skip+1, stackline, msg, args...))
+}
+
+func StackErr(skip int, stackline int, err error, msg string, args ...interface{}) error {
+	if err == nil {
+		return nil
+	}
+	if len(msg) == 0 {
+		return fmt.Errorf(StackString(skip+1, stackline, err.Error()))
+	} else {
+		return fmt.Errorf(StackString(skip+1, stackline, msg+" | "+err.Error(), args...))
+	}
 
 }
 
