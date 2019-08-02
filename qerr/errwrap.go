@@ -41,7 +41,7 @@ func StackString(skip int, stackline int, msg string, args ...interface{}) strin
 	if cut.Stack == nil {
 		return fmt.Sprintf("%s%s | %s : %d", msg, cut.File, cut.Func, cut.Line)
 	} else {
-		return fmt.Sprintf("%s%s | %s : %d\n%s", msg, cut.File, cut.Func, cut.Line, string(cut.Stack))
+		return fmt.Sprintf("%s%s | %s : %d\n%s\n\n", msg, cut.File, cut.Func, cut.Line, string(cut.Stack))
 	}
 }
 
