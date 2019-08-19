@@ -55,8 +55,8 @@ func StackCutting(skip int, stackline int) *StackCut {
 	var stackbytes []byte
 	if stackline >= 0 {
 
-		skip = (skip * 2) + 4
-		stackline = stackline + 1
+		skip = (skip * 2) + 6
+		// stackline = stackline + 1
 		stackbytes = make([]byte, 16*1024)
 		var stacklen = runtime.Stack(stackbytes, false)
 		var from = 0
