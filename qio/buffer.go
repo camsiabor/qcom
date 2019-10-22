@@ -42,7 +42,11 @@ func NewBuffer(bufferType BufferType) *Buffer {
 			}
 		}
 		if buffer.bufferFile == nil {
-			panic(fmt.Errorf("unable to create temp file in all such directorys %v , %v", dirs, err.Error()))
+			if err == nil {
+				panic(fmt.Errorf("unable to create temp file in all such directorys %v", dirs))
+			} else {
+				panic(fmt.Errorf("unable to create temp file in all such directorys %v , %v", dirs, err.Error()))
+			}
 		}
 		buffer.bufferFileName = buffer.bufferFile.Name()
 	}
