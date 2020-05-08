@@ -7,6 +7,10 @@ import (
 	"time"
 )
 
+func NowUTCRFC33399() string {
+	return time.Now().UTC().Format(time.RFC3339)
+}
+
 func Date2Int(t *time.Time) int {
 	if t == nil {
 		var n = time.Now()

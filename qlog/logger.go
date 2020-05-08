@@ -67,6 +67,21 @@ func (o *LogManager) GetDef() *Logi {
 	return o.def
 }
 
+func (o *LogManager) SetDef(dir, suffix string, level int, stdout bool, flag int) *Logi {
+	if flag == 0 {
+		flag = log.Ltime
+	}
+	o.def = &Logi{
+		key:        "",
+		Dir:        dir,
+		FileSuffix: suffix,
+		Level:      level,
+		ToStdout:   stdout,
+		LogFlag:    flag,
+	}
+	return o.def
+}
+
 func (o *LogManager) Get(key string) *Logi {
 	if len(key) == 0 {
 		return o.def
