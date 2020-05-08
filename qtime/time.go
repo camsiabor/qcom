@@ -16,6 +16,10 @@ func NowUTCRFC33399() string {
 	return time.Now().UTC().Format(time.RFC3339)
 }
 
+func NowUTCRFC33399Shift(year, month, day int) string {
+	return time.Now().UTC().AddDate(year, month, day).Format(time.RFC3339)
+}
+
 func Date2Int(t *time.Time) int {
 	if t == nil {
 		var n = time.Now()
