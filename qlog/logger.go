@@ -288,7 +288,7 @@ func (o *Logi) LogEx(level int, stackSkip int, v ...interface{}) {
 
 	var stackstr = ""
 	var line = ""
-	var vs = util.SliceToString(" ", v...)
+	var vs = util.SliceToString(" | ", v...)
 	if stackSkip >= 0 {
 		var linenum = 0
 		var filename = ""

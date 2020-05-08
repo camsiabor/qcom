@@ -7,6 +7,11 @@ import (
 	"time"
 )
 
+func NowUTCPointer() *time.Time {
+	var t = time.Now().UTC()
+	return &t
+}
+
 func NowUTCRFC33399() string {
 	return time.Now().UTC().Format(time.RFC3339)
 }
