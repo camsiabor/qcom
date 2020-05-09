@@ -332,8 +332,28 @@ func (o *Logi) Printf(format string, v ...interface{}) {
 	}
 }
 
+func (o *Logi) Verbose(v ...interface{}) {
+	o.LogEx(VERBOSE, 2, v...)
+}
+
+func (o *Logi) Debug(v ...interface{}) {
+	o.LogEx(DEBUG, 2, v...)
+}
+
+func (o *Logi) Info(v ...interface{}) {
+	o.LogEx(INFO, 2, v...)
+}
+
+func (o *Logi) Warn(v ...interface{}) {
+	o.LogEx(WARN, 2, v...)
+}
+
 func (o *Logi) Error(skipStack int, v ...interface{}) {
 	o.LogEx(ERROR, 2+skipStack, v...)
+}
+
+func (o *Logi) Fatal(skipStack int, v ...interface{}) {
+	o.LogEx(FATAL, 2+skipStack, v...)
 }
 
 func (o *Logi) Log(level int, v ...interface{}) {
