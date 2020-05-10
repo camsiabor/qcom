@@ -7,6 +7,24 @@ import (
 	"time"
 )
 
+func ShiftUTCPointer(year, month, day int, delta, trunc time.Duration) *time.Time {
+
+	var t = time.Now().UTC()
+	if year != 0 && month != 0 && day != 0 {
+		t = t.AddDate(year, month, day)
+	}
+
+	if delta != 0 {
+		t = t.Add(delta)
+	}
+
+	if trunc != 0 {
+		t = t.Truncate(trunc)
+	}
+
+	return &t
+}
+
 func NowUTCPointer() *time.Time {
 	var t = time.Now().UTC()
 	return &t
