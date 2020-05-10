@@ -10,7 +10,7 @@ import (
 func ShiftUTCPointer(year, month, day int, delta, trunc time.Duration) *time.Time {
 
 	var t = time.Now().UTC()
-	if year != 0 && month != 0 && day != 0 {
+	if year != 0 || month != 0 || day != 0 {
 		t = t.AddDate(year, month, day)
 	}
 
