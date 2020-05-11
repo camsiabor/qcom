@@ -9,15 +9,16 @@ import (
 	"reflect"
 )
 
-func ConfigLoad(filepath string, includename string) (config map[string]interface{}, err error) {
+func ConfigLoad(filepath string, includename string, expand string) (config map[string]interface{}, err error) {
 
 	var configfile *os.File
 	configfile, err = os.Open(filepath)
-	defer configfile.Close()
-
 	if err != nil {
 		return nil, err
 	}
+	//noinspection GoUnhandledErrorResult
+	defer configfile.Close()
+
 	config = make(map[string]interface{})
 	var decoder = json.NewDecoder(configfile)
 	err = decoder.Decode(&config)
@@ -25,19 +26,35 @@ func ConfigLoad(filepath string, includename string) (config map[string]interfac
 		return nil, err
 	}
 
-	if len(includename) > 0 {
-		var includes = util.GetMap(config, false, includename)
-		if includes != nil {
-			for key, val := range includes {
-				if val == nil {
+	/*
+		if len(expand) > 0 {
+			for key, val := range config {
+				var str, ok = val.(string)
+				if !ok {
 					continue
 				}
-				var sval, ok = val.(string)
-				if ok {
-					subconfig, _ := ConfigLoad(sval, includename)
-					if subconfig != nil {
-						config[key] = subconfig
-					}
+				if strings.Index(str, expand) != 0 {
+					continue
+				}
+
+			}
+		}
+	*/
+
+	if len(includename) > 0 {
+		var includes = util.GetMap(config, false, includename)
+		if includes == nil {
+			return config, err
+		}
+		for key, val := range includes {
+			if val == nil {
+				continue
+			}
+			var sval, ok = val.(string)
+			if ok {
+				subconfig, _ := ConfigLoad(sval, includename, expand)
+				if subconfig != nil {
+					config[key] = subconfig
 				}
 			}
 		}
