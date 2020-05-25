@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"reflect"
+	"strings"
 )
 
 func ConfigLoad(filepath string, includename string, expand string) (config map[string]interface{}, err error) {
@@ -26,20 +27,23 @@ func ConfigLoad(filepath string, includename string, expand string) (config map[
 		return nil, err
 	}
 
-	/*
-		if len(expand) > 0 {
-			for key, val := range config {
-				var str, ok = val.(string)
-				if !ok {
-					continue
-				}
-				if strings.Index(str, expand) != 0 {
-					continue
-				}
-
+	if len(expand) > 0 {
+		for key, val := range config {
+			var valstr, ok = val.(string)
+			if !ok {
+				continue
+			}
+			var index = strings.Index(valstr, expand)
+			if index != 0 {
+				continue
+			}
+			var path = valstr[len(expand):]
+			var subconfig, _ = ConfigLoad(path, includename, expand)
+			if subconfig != nil {
+				config[key] = subconfig
 			}
 		}
-	*/
+	}
 
 	if len(includename) > 0 {
 		var includes = util.GetMap(config, false, includename)
