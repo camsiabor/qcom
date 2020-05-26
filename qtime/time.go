@@ -7,6 +7,31 @@ import (
 	"time"
 )
 
+func ParseDuration(unit string, interval int64) time.Duration {
+	if interval <= 0 {
+		panic(fmt.Errorf("invalid interval : %v", interval))
+	}
+	if len(unit) < 3 {
+		panic(fmt.Errorf("invalid unit : %v", unit))
+	}
+	var u = strings.ToLower(unit[0:3])
+	var dur = time.Duration(interval)
+	switch u {
+	case "mil":
+		return dur * time.Millisecond
+	case "sec":
+		return dur * time.Second
+	case "min":
+		return dur * time.Minute
+	case "hou":
+		return dur * time.Hour
+	case "day":
+		return dur * time.Hour * 24
+	default:
+		panic("invalid unit : " + unit)
+	}
+}
+
 func ShiftUTCPointer(year, month, day int, delta, trunc time.Duration) *time.Time {
 
 	var t = time.Now().UTC()
